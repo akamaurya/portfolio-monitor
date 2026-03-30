@@ -7,7 +7,8 @@ import json
 import logging
 from datetime import datetime
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
@@ -159,31 +160,31 @@ def generate_report(
         research_context=research_context or "No research data available.",
     )
 
-    gen_config = genai.GenerationConfig(
+    gen_config = types.GenerateContentConfig(
+        system_instruction=_SYSTEM_INSTRUCTION,
         temperature=0.3,
         max_output_tokens=8192,
     )
 
     models_to_try = [
-        "gemini-pro-latest",
-        "gemini-flash-latest,
+        "gemini-3.1-pro-preview",
+        "gemini-3.1-flash",
     ]
 
     last_err = None
     for model_name in models_to_try:
         for api_key in api_keys:
             try:
-                genai.configure(api_key=api_key)
-                
-                logger.info("Calling Gemini model: %s with key starting %s***", model_name, api_key[:4])
-                model = genai.GenerativeModel(
-                    model_name,
-                    system_instruction=_SYSTEM_INSTRUCTION,
-                    generation_config=gen_config,
-                )
-                response = model.generate_content(prompt)
+                client = genai.Client(api_key=api_key)
 
-                if hasattr(response, "usage_metadata"):
+                logger.info("Calling Gemini model: %s with key starting %s***", model_name, api_key[:4])
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                    config=gen_config,
+                )
+
+                if hasattr(response, "usage_metadata") and response.usage_metadata:
                     meta = response.usage_metadata
                     logger.info(
                         "Tokens — prompt: %s, response: %s, total: %s",

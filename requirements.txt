@@ -1,7 +1,7 @@
 requests
 pyotp
 yfinance
-google-generativeai
+google-genai
 python-dotenv
 markdown
 pypdf
