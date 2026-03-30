@@ -3,9 +3,15 @@ Playwright-based Kite Connect authentication.
 
 Automates the full Zerodha login flow in headless Chromium:
   Login URL → User ID + Password → (optional PIN) → TOTP → redirect with request_token
+
+Per Kite Connect v3 docs (https://kite.trade/docs/connect/v3/user/):
+  1. Navigate to https://kite.zerodha.com/connect/login?v=3&api_key=xxx
+  2. Successful login redirects to registered URL with ?request_token=xxx
+  3. POST request_token + checksum to /session/token for access_token
 """
 
 import os
+import time
 import logging
 from urllib.parse import urlparse, parse_qs
 
@@ -31,10 +37,10 @@ _SELECTORS = {
         "input[label='PIN']",
     ],
     "totp": [
-        "input#userid",           # Kite re-uses #userid for TOTP on some flows
         "input[type='number']",
         "input[autocomplete='one-time-code']",
         "input#totp",
+        "input#userid",           # Kite re-uses #userid for TOTP on some flows
     ],
     "submit": [
         "button[type='submit']",
@@ -71,12 +77,48 @@ def _click_submit(page, timeout: int = 10_000):
     raise RuntimeError("Could not find a submit button.")
 
 
+def _try_click_submit(page, timeout: int = 5_000):
+    """Try to click submit, but don't fail if button is gone (auto-submit)."""
+    try:
+        _click_submit(page, timeout=timeout)
+    except (RuntimeError, Exception) as exc:
+        logger.debug("Submit click skipped (likely auto-submit): %s", exc)
+
+
 def _debug_screenshot(page, name: str):
     """Save a screenshot if DEBUG_AUTH is set."""
     if os.environ.get("DEBUG_AUTH"):
         path = f"debug_{name}.png"
         page.screenshot(path=path)
         logger.info("Debug screenshot saved: %s", path)
+
+
+def _wait_for_request_token_url(page, timeout: int = 30_000) -> str:
+    """
+    Wait for the page URL to contain 'request_token'.
+    
+    This handles two scenarios:
+    1. Redirect to a reachable URL (e.g. a local server)
+    2. Redirect to an unreachable URL (e.g. http://127.0.0.1 on GitHub Actions)
+       In this case, the page may show an error, but the URL still contains the token.
+    """
+    start = time.time()
+    timeout_secs = timeout / 1000
+
+    while time.time() - start < timeout_secs:
+        current_url = page.url
+        if "request_token" in current_url:
+            return current_url
+        # Also check if navigation failed but URL changed to redirect target
+        try:
+            page.wait_for_timeout(500)
+        except Exception:
+            pass
+
+    raise RuntimeError(
+        f"Timed out waiting for request_token redirect after {timeout_secs}s. "
+        f"Last URL: {page.url}"
+    )
 
 
 def authenticate() -> KiteConnect:
@@ -106,9 +148,27 @@ def authenticate() -> KiteConnect:
         )
         page = context.new_page()
 
+        # Capture redirect URL even if the page itself fails to load
+        # (e.g. redirect to http://127.0.0.1 which isn't running)
+        captured_redirect_url = None
+
+        def on_response(response):
+            nonlocal captured_redirect_url
+            if "request_token" in response.url:
+                captured_redirect_url = response.url
+
+        def on_request(request):
+            nonlocal captured_redirect_url
+            if "request_token" in request.url:
+                captured_redirect_url = request.url
+
+        page.on("request", on_request)
+        page.on("response", on_response)
+
         try:
             # ── Step 1: Navigate to login ────────────────────────
             page.goto(login_url, wait_until="networkidle")
+            page.wait_for_timeout(1000)  # Let page fully render
             _debug_screenshot(page, "01_login_page")
 
             # ── Step 2: Fill user ID & password ──────────────────
@@ -117,6 +177,7 @@ def authenticate() -> KiteConnect:
             _debug_screenshot(page, "02_credentials_filled")
 
             _click_submit(page)
+            page.wait_for_timeout(3000)  # Wait for next page to load
             page.wait_for_load_state("networkidle")
             _debug_screenshot(page, "03_after_login_submit")
 
@@ -125,6 +186,7 @@ def authenticate() -> KiteConnect:
                 try:
                     _find_and_fill(page, _SELECTORS["pin"], pin, "PIN", timeout=5_000)
                     _click_submit(page)
+                    page.wait_for_timeout(2000)
                     page.wait_for_load_state("networkidle")
                     _debug_screenshot(page, "04_after_pin")
                 except RuntimeError:
@@ -138,11 +200,45 @@ def authenticate() -> KiteConnect:
             _find_and_fill(page, _SELECTORS["totp"], code, "TOTP")
             _debug_screenshot(page, "05_totp_filled")
 
-            _click_submit(page)
+            # Kite's modern UI may auto-submit after 6 digits.
+            # Try clicking submit, but don't fail if element is gone.
+            page.wait_for_timeout(500)
+            _try_click_submit(page, timeout=3_000)
 
             # ── Step 5: Wait for redirect with request_token ─────
-            page.wait_for_url("**request_token**", timeout=30_000)
-            redirect_url = page.url
+            # The redirect URL may be unreachable (e.g. http://127.0.0.1),
+            # so we use multiple strategies to capture it.
+            redirect_url = None
+
+            # Strategy 1: Check if we already captured it via event listeners
+            page.wait_for_timeout(5000)  # Give time for redirect
+            if captured_redirect_url and "request_token" in captured_redirect_url:
+                redirect_url = captured_redirect_url
+                logger.info("Captured redirect URL via request listener.")
+
+            # Strategy 2: Check current page URL
+            if not redirect_url and "request_token" in page.url:
+                redirect_url = page.url
+                logger.info("Found request_token in current page URL.")
+
+            # Strategy 3: Wait longer for URL to change
+            if not redirect_url:
+                try:
+                    page.wait_for_url("**request_token**", timeout=15_000)
+                    redirect_url = page.url
+                    logger.info("Got redirect URL via wait_for_url.")
+                except PwTimeout:
+                    # Check captured URL one more time
+                    if captured_redirect_url and "request_token" in captured_redirect_url:
+                        redirect_url = captured_redirect_url
+
+            if not redirect_url:
+                _debug_screenshot(page, "error_no_redirect")
+                raise RuntimeError(
+                    f"Could not capture request_token redirect. "
+                    f"Page title: '{page.title()}', URL: '{page.url}'"
+                )
+
             _debug_screenshot(page, "06_redirect")
             logger.info("Redirect URL: %s", redirect_url)
 
