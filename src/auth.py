@@ -35,7 +35,7 @@ def authenticate() -> KiteConnect:
 
     kite = KiteConnect(api_key=api_key)
 
-    # ── Step 1: Create HTTP session and login ────────────────────
+    # ── Step 1: Create HTTP session ─────────────────────────────
     session = requests.Session()
     session.headers.update({
         "User-Agent": (
@@ -46,6 +46,15 @@ def authenticate() -> KiteConnect:
         "X-Kite-Version": "3",
     })
 
+    # GET the Kite Connect login URL first to capture the
+    # redirect URL (contains sess_id). We'll re-use this later.
+    login_url = f"https://kite.trade/connect/login?v=3&api_key={api_key}"
+    logger.info("Fetching initial login URL…")
+    initial_resp = session.get(login_url)
+    kite_login_url = initial_resp.url  # e.g. https://kite.zerodha.com/connect/login?v=3&api_key=xxx&sess_id=yyy
+    logger.info("Got Kite login page URL: %s", kite_login_url)
+
+    # ── Step 2: POST login credentials ───────────────────────────
     logger.info("Posting login credentials…")
     login_resp = session.post(
         "https://kite.zerodha.com/api/login",
@@ -62,7 +71,7 @@ def authenticate() -> KiteConnect:
     request_id = login_data["data"]["request_id"]
     logger.info("Login successful, got request_id.")
 
-    # ── Step 2: Submit TOTP ──────────────────────────────────────
+    # ── Step 3: Submit TOTP ──────────────────────────────────────
     totp_code = pyotp.TOTP(totp_secret).now()
     logger.info("Generated TOTP code: %s", totp_code)
 
@@ -91,14 +100,14 @@ def authenticate() -> KiteConnect:
 
     logger.info("TOTP verification successful.")
 
-    # ── Step 3: Get request_token via Kite Connect login URL ─────
-    # The session now has authenticated cookies. When we GET the
-    # Kite Connect login URL, it will redirect to the registered
-    # callback URL with ?request_token=xxx appended.
-    login_url = f"https://kite.trade/connect/login?api_key={api_key}&v=3"
-    logger.info("Fetching login URL to get request_token…")
+    # ── Step 4: Get request_token ────────────────────────────────
+    # After login+TOTP, re-visit the original login URL with
+    # &skip_session=true to bypass the authorize page and get
+    # redirected directly to the callback with request_token.
+    redirect_url = kite_login_url + "&skip_session=true"
+    logger.info("Fetching redirect URL to get request_token…")
 
-    token_resp = session.get(login_url, allow_redirects=True)
+    token_resp = session.get(redirect_url, allow_redirects=True)
     final_url = token_resp.url
     logger.info("Final redirect URL: %s", final_url)
 
