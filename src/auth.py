@@ -1,41 +1,76 @@
 """
-Kite Connect authentication via direct HTTP requests.
+Kite authentication via direct HTTP requests + enctoken.
 
-Replaces Playwright browser automation with pure HTTP calls, which is
-far more reliable in headless CI environments like GitHub Actions.
+Uses the same login flow as Kite's own web frontend:
+  1. POST credentials to /api/login  → request_id
+  2. POST TOTP to /api/twofa         → enctoken cookie set
+  3. Use enctoken to call Kite web API endpoints directly
 
-Flow (per Kite Connect v3 docs):
-  1. POST credentials to https://kite.zerodha.com/api/login → get request_id
-  2. POST TOTP to https://kite.zerodha.com/api/twofa → session cookies set
-  3. GET the Kite Connect login URL (with session) → redirects with request_token
-  4. Exchange request_token for access_token via kite.generate_session()
+This avoids the fragile Kite Connect OAuth redirect flow entirely
+and is the approach used by all reliable community implementations.
 """
 
 import os
 import logging
-from urllib.parse import urlparse, parse_qs
 
 import pyotp
 import requests
-from kiteconnect import KiteConnect
 
 logger = logging.getLogger(__name__)
 
+BASE_URL = "https://kite.zerodha.com"
 
-def authenticate() -> KiteConnect:
+
+class KiteWeb:
     """
-    Authenticate with Kite Connect using direct HTTP requests.
-    Returns an authenticated KiteConnect instance.
+    Lightweight Kite web-API client authenticated via enctoken.
+    Exposes .holdings() and .positions() matching the KiteConnect SDK interface.
     """
-    api_key = os.environ["KITE_API_KEY"]
-    api_secret = os.environ["KITE_API_SECRET"]
+
+    def __init__(self, enctoken: str, user_id: str):
+        self._session = requests.Session()
+        self._session.headers.update({
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Authorization": f"enctoken {enctoken}",
+            "X-Kite-Version": "3",
+        })
+        self.user_id = user_id
+
+    def _get(self, path: str) -> dict:
+        url = f"{BASE_URL}{path}"
+        resp = self._session.get(url)
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("status") == "error":
+            raise RuntimeError(f"Kite API error: {data.get('message')}")
+        return data.get("data", data)
+
+    def holdings(self) -> list:
+        """Fetch holdings — same shape as KiteConnect.holdings()."""
+        return self._get("/oms/portfolio/holdings")
+
+    def positions(self) -> dict:
+        """Fetch positions — same shape as KiteConnect.positions()."""
+        return self._get("/oms/portfolio/positions")
+
+    def profile(self) -> dict:
+        """Fetch user profile (useful for verifying auth)."""
+        return self._get("/oms/user/profile")
+
+
+def authenticate() -> KiteWeb:
+    """
+    Authenticate with Kite using direct HTTP requests.
+    Returns a KiteWeb instance with enctoken-based auth.
+    """
     user_id = os.environ["KITE_USER_ID"]
     password = os.environ["KITE_PASSWORD"]
     totp_secret = os.environ["KITE_TOTP_SECRET"]
 
-    kite = KiteConnect(api_key=api_key)
-
-    # ── Step 1: Create HTTP session ─────────────────────────────
     session = requests.Session()
     session.headers.update({
         "User-Agent": (
@@ -43,21 +78,12 @@ def authenticate() -> KiteConnect:
             "AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/120.0.0.0 Safari/537.36"
         ),
-        "X-Kite-Version": "3",
     })
 
-    # GET the Kite Connect login URL first to capture the
-    # redirect URL (contains sess_id). We'll re-use this later.
-    login_url = f"https://kite.trade/connect/login?v=3&api_key={api_key}"
-    logger.info("Fetching initial login URL…")
-    initial_resp = session.get(login_url)
-    kite_login_url = initial_resp.url  # e.g. https://kite.zerodha.com/connect/login?v=3&api_key=xxx&sess_id=yyy
-    logger.info("Got Kite login page URL: %s", kite_login_url)
-
-    # ── Step 2: POST login credentials ───────────────────────────
+    # ── Step 1: POST login credentials ───────────────────────────
     logger.info("Posting login credentials…")
     login_resp = session.post(
-        "https://kite.zerodha.com/api/login",
+        f"{BASE_URL}/api/login",
         data={"user_id": user_id, "password": password},
     )
     login_resp.raise_for_status()
@@ -71,12 +97,12 @@ def authenticate() -> KiteConnect:
     request_id = login_data["data"]["request_id"]
     logger.info("Login successful, got request_id.")
 
-    # ── Step 3: Submit TOTP ──────────────────────────────────────
+    # ── Step 2: POST TOTP ────────────────────────────────────────
     totp_code = pyotp.TOTP(totp_secret).now()
-    logger.info("Generated TOTP code: %s", totp_code)
+    logger.info("Submitting TOTP…")
 
     twofa_resp = session.post(
-        "https://kite.zerodha.com/api/twofa",
+        f"{BASE_URL}/api/twofa",
         data={
             "user_id": user_id,
             "request_id": request_id,
@@ -86,13 +112,12 @@ def authenticate() -> KiteConnect:
 
     if twofa_resp.status_code != 200:
         logger.error(
-            "TOTP request failed (HTTP %s): %s",
+            "TOTP failed (HTTP %s): %s",
             twofa_resp.status_code, twofa_resp.text,
         )
         twofa_resp.raise_for_status()
 
     twofa_data = twofa_resp.json()
-
     if twofa_data.get("status") != "success":
         raise RuntimeError(
             f"TOTP verification failed: {twofa_data.get('message', twofa_data)}"
@@ -100,32 +125,21 @@ def authenticate() -> KiteConnect:
 
     logger.info("TOTP verification successful.")
 
-    # ── Step 4: Get request_token ────────────────────────────────
-    # After login+TOTP, re-visit the original login URL with
-    # &skip_session=true to bypass the authorize page and get
-    # redirected directly to the callback with request_token.
-    redirect_url = kite_login_url + "&skip_session=true"
-    logger.info("Fetching redirect URL to get request_token…")
-
-    token_resp = session.get(redirect_url, allow_redirects=True)
-    final_url = token_resp.url
-    logger.info("Final redirect URL: %s", final_url)
-
-    parsed = urlparse(final_url)
-    qs = parse_qs(parsed.query)
-    request_token = qs.get("request_token", [None])[0]
-
-    if not request_token:
+    # ── Step 3: Extract enctoken from cookies ────────────────────
+    enctoken = session.cookies.get("enctoken")
+    if not enctoken:
         raise RuntimeError(
-            f"request_token not found in redirect URL: {final_url}"
+            f"enctoken not found in cookies. "
+            f"Available cookies: {list(session.cookies.keys())}"
         )
 
-    logger.info("Got request_token: %s…", request_token[:8])
+    logger.info("Got enctoken. Creating authenticated client.")
 
-    # ── Step 4: Exchange request_token for access_token ──────────
-    session_data = kite.generate_session(request_token, api_secret=api_secret)
-    access_token = session_data["access_token"]
-    kite.set_access_token(access_token)
-    logger.info("Authenticated successfully. Access token set.")
+    # ── Step 4: Build authenticated KiteWeb client ───────────────
+    kite = KiteWeb(enctoken=enctoken, user_id=user_id)
+
+    # Verify by fetching profile
+    profile = kite.profile()
+    logger.info("Authenticated as: %s", profile.get("user_name", user_id))
 
     return kite

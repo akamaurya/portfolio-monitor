@@ -1,4 +1,3 @@
-kiteconnect
 requests
 pyotp
 yfinance

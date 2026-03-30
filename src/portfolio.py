@@ -1,14 +1,14 @@
 """
-Fetch and clean holdings + positions from Kite Connect.
+Fetch and clean holdings + positions from Kite.
 """
 
 import logging
-from kiteconnect import KiteConnect
+from src.auth import KiteWeb
 
 logger = logging.getLogger(__name__)
 
 
-def get_holdings(kite: KiteConnect) -> dict:
+def get_holdings(kite: KiteWeb) -> dict:
     """
     Return cleaned holdings and positions from Kite.
 

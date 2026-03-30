@@ -12,12 +12,9 @@ jobs:
     timeout-minutes: 15
 
     env:
-      KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
-      KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
       KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
       KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
       KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
-      KITE_PIN: ${{ secrets.KITE_PIN }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
       GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
