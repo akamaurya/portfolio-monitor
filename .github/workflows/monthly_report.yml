@@ -9,7 +9,7 @@ on:
 jobs:
   generate-report:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     env:
       KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
@@ -34,11 +34,6 @@ jobs:
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt
-
-      - name: Install Playwright Chromium
-        run: |
-          playwright install chromium
-          playwright install-deps chromium
 
       - name: Run Portfolio Monitor
         run: python main.py
