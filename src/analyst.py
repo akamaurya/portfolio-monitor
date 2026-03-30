@@ -139,7 +139,15 @@ def generate_report(
     Call Gemini to produce a concise, visual markdown report
     grounded in live market research data.
     """
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    api_keys = [
+        os.environ.get("GEMINI_API_KEY"),
+        os.environ.get("GEMINI_API_KEY_2"),
+        os.environ.get("GEMINI_API_KEY_3"),
+    ]
+    api_keys = [k for k in api_keys if k and k.strip()]
+
+    if not api_keys:
+        raise ValueError("No Gemini API keys found in environment variables.")
 
     now = datetime.now()
     prompt = _PROMPT_TEMPLATE.format(
@@ -163,30 +171,33 @@ def generate_report(
 
     last_err = None
     for model_name in models_to_try:
-        try:
-            logger.info("Calling Gemini model: %s", model_name)
-            model = genai.GenerativeModel(
-                model_name,
-                system_instruction=_SYSTEM_INSTRUCTION,
-                generation_config=gen_config,
-            )
-            response = model.generate_content(prompt)
-
-            if hasattr(response, "usage_metadata"):
-                meta = response.usage_metadata
-                logger.info(
-                    "Tokens — prompt: %s, response: %s, total: %s",
-                    getattr(meta, "prompt_token_count", "?"),
-                    getattr(meta, "candidates_token_count", "?"),
-                    getattr(meta, "total_token_count", "?"),
+        for api_key in api_keys:
+            try:
+                genai.configure(api_key=api_key)
+                
+                logger.info("Calling Gemini model: %s with key starting %s***", model_name, api_key[:4])
+                model = genai.GenerativeModel(
+                    model_name,
+                    system_instruction=_SYSTEM_INSTRUCTION,
+                    generation_config=gen_config,
                 )
+                response = model.generate_content(prompt)
 
-            report_text = response.text
-            logger.info("Report generated (%d chars) using %s.", len(report_text), model_name)
-            return report_text
+                if hasattr(response, "usage_metadata"):
+                    meta = response.usage_metadata
+                    logger.info(
+                        "Tokens — prompt: %s, response: %s, total: %s",
+                        getattr(meta, "prompt_token_count", "?"),
+                        getattr(meta, "candidates_token_count", "?"),
+                        getattr(meta, "total_token_count", "?"),
+                    )
 
-        except Exception as exc:
-            logger.warning("Model %s failed: %s", model_name, exc)
-            last_err = exc
+                report_text = response.text
+                logger.info("Report generated (%d chars) using %s.", len(report_text), model_name)
+                return report_text
 
-    raise RuntimeError(f"All Gemini models failed. Last error: {last_err}")
+            except Exception as exc:
+                logger.warning("Model %s with key %s*** failed: %s", model_name, api_key[:4], exc)
+                last_err = exc
+
+    raise RuntimeError(f"All Gemini models with all available keys failed. Last error: {last_err}")
