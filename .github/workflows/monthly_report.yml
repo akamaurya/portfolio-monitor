@@ -1,0 +1,44 @@
+name: Monthly Portfolio Report
+
+on:
+  schedule:
+    # 1st of every month at 04:00 UTC  →  09:30 AM IST
+    - cron: '0 4 1 * *'
+  workflow_dispatch:   # manual trigger from Actions tab
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+      KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
+      KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
+      KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
+      KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
+      KITE_PIN: ${{ secrets.KITE_PIN }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: |
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: Run Portfolio Monitor
+        run: python main.py

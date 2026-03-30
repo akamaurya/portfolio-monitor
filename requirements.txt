@@ -1,0 +1,11 @@
+kiteconnect
+playwright
+pyotp
+yfinance
+google-generativeai
+python-dotenv
+markdown
+
+# After installing these packages, also run:
+#   playwright install chromium
+# This downloads the Chromium browser binary needed for headless auth.

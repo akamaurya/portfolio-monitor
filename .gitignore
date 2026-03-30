@@ -1,0 +1,19 @@
+# Environment (contains secrets)
+.env
+
+# Python
+venv/
+*.pyc
+__pycache__/
+*.egg-info/
+
+# Debug screenshots
+debug_*.png
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
