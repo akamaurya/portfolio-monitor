@@ -4,3 +4,4 @@ yfinance
 google-generativeai
 python-dotenv
 markdown
+pypdf
