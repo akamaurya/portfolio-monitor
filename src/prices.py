@@ -152,15 +152,16 @@ def enrich_with_prices(holdings: list[dict]) -> list[dict]:
     return enriched
 
 
-def build_portfolio_summary(enriched_holdings: list[dict]) -> dict:
+def build_portfolio_summary(enriched_holdings: list[dict], mf_holdings: list[dict] = None) -> dict:
     """
-    Aggregate portfolio‑level stats from enriched holdings.
+    Aggregate portfolio‑level stats from enriched equity + MF holdings.
     """
     total_invested = 0.0
     total_current = 0.0
     sector_map: dict[str, float] = {}
     scored: list[dict] = []
 
+    # ── Equity holdings ──────────────────────────────────────────
     for h in enriched_holdings:
         qty = h["quantity"] + h.get("t1_quantity", 0)
         invested = h["avg_cost"] * qty
@@ -178,14 +179,53 @@ def build_portfolio_summary(enriched_holdings: list[dict]) -> dict:
 
     scored.sort(key=lambda x: x["unrealized_pnl_pct"], reverse=True)
 
+    # ── MF holdings ──────────────────────────────────────────────
+    mf_total_invested = 0.0
+    mf_total_current = 0.0
+    mf_summary_list = []
+
+    for mf in (mf_holdings or []):
+        mf_inv = mf.get("invested", 0)
+        mf_cur = mf.get("current_value", 0)
+        mf_total_invested += mf_inv
+        mf_total_current += mf_cur
+
+        sector_map["Mutual Funds"] = sector_map.get("Mutual Funds", 0) + mf_cur
+
+        mf_summary_list.append({
+            "fund_name": mf.get("fund_name", mf.get("symbol")),
+            "invested": mf_inv,
+            "current_value": mf_cur,
+            "pnl": mf.get("pnl", 0),
+            "pnl_pct": mf.get("pnl_pct", 0),
+        })
+
+    total_invested += mf_total_invested
+    total_current += mf_total_current
+
     total_pnl_abs = round(total_current - total_invested, 2)
     total_pnl_pct = round(total_pnl_abs / total_invested * 100, 2) if total_invested else 0
+
+    # Equity-only P&L
+    eq_invested = total_invested - mf_total_invested
+    eq_current = total_current - mf_total_current
+    eq_pnl_abs = round(eq_current - eq_invested, 2)
+    eq_pnl_pct = round(eq_pnl_abs / eq_invested * 100, 2) if eq_invested else 0
 
     return {
         "total_invested": round(total_invested, 2),
         "total_current_value": round(total_current, 2),
         "total_unrealized_pnl_abs": total_pnl_abs,
         "total_unrealized_pnl_pct": total_pnl_pct,
+        "equity_invested": round(eq_invested, 2),
+        "equity_current": round(eq_current, 2),
+        "equity_pnl_abs": eq_pnl_abs,
+        "equity_pnl_pct": eq_pnl_pct,
+        "mf_invested": round(mf_total_invested, 2),
+        "mf_current": round(mf_total_current, 2),
+        "mf_pnl_abs": round(mf_total_current - mf_total_invested, 2),
+        "mf_pnl_pct": round((mf_total_current - mf_total_invested) / mf_total_invested * 100, 2) if mf_total_invested else 0,
+        "mf_funds": mf_summary_list,
         "sector_breakdown": {k: round(v, 2) for k, v in sorted(sector_map.items(), key=lambda x: -x[1])},
         "top_3_winners": [
             {"symbol": s["symbol"], "pnl_pct": s["unrealized_pnl_pct"]}
@@ -196,3 +236,4 @@ def build_portfolio_summary(enriched_holdings: list[dict]) -> dict:
             for s in scored[-3:]
         ],
     }
+

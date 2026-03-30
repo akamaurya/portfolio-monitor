@@ -1,5 +1,5 @@
 """
-Generate a research‑grade monthly portfolio report via Google Gemini.
+Generate a visual, concise portfolio report via Google Gemini.
 """
 
 import os
@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 # ── System instruction ───────────────────────────────────────────
 _SYSTEM_INSTRUCTION = (
     "You are a senior equity research analyst specializing in Indian "
-    "markets with deep expertise in value investing (Buffett/Munger/"
-    "Pabrai school), macroeconomics, and global capital flows accessible "
-    "to Indian retail investors. You write like a sell-side research "
-    "report — direct, opinionated, data-referenced. You never hedge "
-    "every statement. When something looks overvalued or risky, you say "
-    "so explicitly."
+    "markets. You write concise, visual, and actionable investment reports. "
+    "Use tables, bullet points, and clear visual formatting. Avoid long "
+    "paragraphs — prefer scannable sections with key data points. "
+    "When something looks overvalued or risky, say so directly. "
+    "Use emojis sparingly for visual scanners (📈📉🟢🔴⚠️🎯). "
+    "Format all currency in Indian Rupees (₹) with comma grouping."
 )
 
 # ── Prompt template ──────────────────────────────────────────────
@@ -27,87 +27,88 @@ _PROMPT_TEMPLATE = """\
 MONTHLY PORTFOLIO REVIEW — {month_year}
 Generated: {today}
 
-PORTFOLIO DATA:
+EQUITY HOLDINGS DATA:
 {portfolio_data}
+
+MUTUAL FUND HOLDINGS DATA:
+{mf_data}
 
 PORTFOLIO SUMMARY:
 {portfolio_summary}
 
-Generate a comprehensive monthly portfolio review with these sections:
+Generate a visually rich, scannable monthly portfolio review. Use tables,
+bullet points, and visual indicators (🟢🔴📈📉) heavily. Minimize long
+prose — this should be easy to scan on a phone.
 
-# 1. Executive Summary
-One-paragraph snapshot: overall performance, key macro themes affecting this portfolio this month, and the single most important action item.
+Output the report in this exact structure:
 
-# 2. Portfolio Snapshot
-Table showing each holding: symbol, quantity, avg cost, current price, current value, unrealized P&L (abs and %), 1-month return, sector.
-Then: total invested, total current value, total P&L.
+# 📊 Portfolio Snapshot
 
-# 3. Macro — India
-Cover all of the following with current analysis:
-- RBI policy stance and repo rate trajectory
-- CPI and WPI inflation trends
-- INR/USD dynamics and implications for import-heavy vs export companies
-- FII and DII net flows (equity and debt)
-- Government capex momentum (railways, defence, infrastructure)
-- Key sector-specific policy developments (PLI, FAME, PTC, SEBI actions)
-- Any earnings season themes if applicable
+Show a clear summary table:
+| Metric | Value |
+|--------|-------|
+| Total Value | ₹X |
+| Total Invested | ₹X |
+| Total P&L | ₹X (X%) |
+| Equity Value | ₹X (X%) |
+| Mutual Funds Value | ₹X (X%) |
 
-# 4. Macro — Global
-- US Federal Reserve posture and rate trajectory
-- US yield curve shape (2Y-10Y spread) and what it signals
-- Dollar Index (DXY) trend and EM implications
-- China economic recovery status and commodity demand
-- Oil price trajectory (Brent) — impact on India CAD and inflation
-- Any geopolitical risks relevant to markets (Middle East, Russia, Taiwan, trade policy)
+# 📈 Equity Holdings
 
-# 5. Sectoral Deep Dive
-For each sector present in this portfolio, write 2-3 paragraphs:
-- What happened in this sector this month
-- Regulatory/policy changes
-- Competitive dynamics
-- Tailwinds and headwinds
-- How it affects the specific holdings in this portfolio
+Table with ALL equity holdings:
+| Stock | Qty | Avg Cost | CMP | Value | P&L | P&L % | Verdict |
+Use 🟢 for profit, 🔴 for loss in the P&L column.
+Add a one-word verdict: HOLD / ADD / TRIM / WATCH
 
-# 6. Individual Holding Review
-For EACH holding, write a structured review:
+# 🏦 Mutual Fund Holdings
 
-**[SYMBOL] — [Company/ETF Name]**
-- Current valuation: P/E [x] vs sector avg [x], P/B [x]
-- Business quality: [moat assessment, management quality]
-- What happened this month: [price action + business news]
-- Value investing verdict: Undervalued / Fair value / Overvalued
-- Recommendation: HOLD / ADD on dips below ₹X / TRIM above ₹X
-- Key risk: [one specific risk]
-- Key catalyst: [one upcoming catalyst]
+Table with ALL mutual fund holdings:
+| Fund | Invested | Current | P&L | P&L % |
+Use 🟢 for profit, 🔴 for loss.
 
-# 7. International & ETF Exposure
-Specifically analyze:
-- Gold ETF exposure: role in portfolio, current gold macro thesis
-- Any US-exposed funds or ETFs: currency impact, US market valuation
-- Overall hedging adequacy
+# 🥇 Winners & Losers
 
-# 8. Portfolio Construction Review
-- Concentration: is any single stock or sector oversized?
-- Gaps: what's missing from a well-constructed India-focused value portfolio?
-- Suggested rebalancing with specific rationale
-- Target allocation you'd recommend vs current allocation
+Show the top 3 performers and bottom 3 performers with:
+- Symbol, P&L %, one-line reason
 
-# 9. Watchlist for Next 30 Days
-2-3 specific opportunities worth tracking given the current macro setup. Include why and at what price you'd act.
+# 🏗️ Sector Allocation
 
-# 10. Key Risks to Monitor
-3 specific tail risks that could affect this portfolio in the next month, with mitigation thought.
+Show sector breakdown as a table:
+| Sector | Value | % of Portfolio |
+Include both equity sectors and mutual funds.
 
-Be thorough, specific, and direct. This report is for a sophisticated individual investor who understands finance.
+# 🌍 Market Context (Keep Brief)
+
+- **India**: 3-4 bullet points on RBI, FII/DII flows, key policy changes
+- **Global**: 3-4 bullet points on Fed, oil, DXY, key risks
+
+# 🔍 Key Holdings Review
+
+For each holding worth > 5% of portfolio, write 2-3 bullet points:
+- What happened this month
+- Valuation assessment (Undervalued/Fair/Overvalued)
+- Action: HOLD / ADD on dips below ₹X / TRIM above ₹X
+
+# ⚠️ Action Items
+
+Numbered list of 3-5 specific actions to take this month:
+1. [Action] — [Rationale]
+
+# 🎯 Watchlist
+
+2-3 stocks/funds worth watching with target entry price.
+
+Keep the ENTIRE report under 3000 words. Be direct, visual, and actionable.
 """
 
 
-def generate_report(enriched_holdings: list[dict], portfolio_summary: dict) -> str:
+def generate_report(
+    enriched_holdings: list[dict],
+    mf_holdings: list[dict],
+    portfolio_summary: dict,
+) -> str:
     """
-    Call Gemini to produce a full markdown report.
-
-    Tries gemini-3.1-pro-preview first, falls back to
-    gemini-3.1-flash-preview if the primary model errors.
+    Call Gemini to produce a concise, visual markdown report.
     """
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
@@ -116,6 +117,7 @@ def generate_report(enriched_holdings: list[dict], portfolio_summary: dict) -> s
         month_year=now.strftime("%B %Y"),
         today=now.strftime("%d %B %Y"),
         portfolio_data=json.dumps(enriched_holdings, indent=2, default=str),
+        mf_data=json.dumps(mf_holdings, indent=2, default=str),
         portfolio_summary=json.dumps(portfolio_summary, indent=2, default=str),
     )
 
@@ -125,8 +127,8 @@ def generate_report(enriched_holdings: list[dict], portfolio_summary: dict) -> s
     )
 
     models_to_try = [
-        "gemini-3.1-pro-preview",
-        "gemini-3-flash-preview",
+        "gemini-2.5-flash-preview-05-20",
+        "gemini-2.0-flash",
     ]
 
     last_err = None
@@ -140,7 +142,6 @@ def generate_report(enriched_holdings: list[dict], portfolio_summary: dict) -> s
             )
             response = model.generate_content(prompt)
 
-            # Log token usage if available
             if hasattr(response, "usage_metadata"):
                 meta = response.usage_metadata
                 logger.info(

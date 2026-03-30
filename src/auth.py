@@ -50,12 +50,16 @@ class KiteWeb:
         return data.get("data", data)
 
     def holdings(self) -> list:
-        """Fetch holdings — same shape as KiteConnect.holdings()."""
+        """Fetch equity holdings."""
         return self._get("/oms/portfolio/holdings")
 
     def positions(self) -> dict:
-        """Fetch positions — same shape as KiteConnect.positions()."""
+        """Fetch positions (day + net)."""
         return self._get("/oms/portfolio/positions")
+
+    def mf_holdings(self) -> list:
+        """Fetch mutual fund (Coin) holdings."""
+        return self._get("/oms/mf/holdings")
 
     def profile(self) -> dict:
         """Fetch user profile (useful for verifying auth)."""

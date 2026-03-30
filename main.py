@@ -37,10 +37,10 @@ def main() -> None:
         except ImportError:
             _timestamp("python-dotenv not installed — assuming env vars are already set.")
 
-    # ── 2. Authenticate with Kite Connect ────────────────────────
+    # ── 2. Authenticate with Kite ────────────────────────────────
     from src.auth import authenticate
 
-    _timestamp("Step 1/6 — Authenticating with Kite Connect…")
+    _timestamp("Step 1/6 — Authenticating with Kite…")
     kite = authenticate()
     _timestamp("Authentication successful.")
 
@@ -50,23 +50,28 @@ def main() -> None:
     _timestamp("Step 2/6 — Fetching holdings and positions…")
     portfolio_data = get_holdings(kite)
     holdings = portfolio_data["holdings"]
+    mf_holdings = portfolio_data["mf_holdings"]
     positions = portfolio_data["positions"]
-    _timestamp(f"Fetched {len(holdings)} holdings, {len(positions)} positions.")
+    _timestamp(
+        f"Fetched {len(holdings)} equity holdings, "
+        f"{len(mf_holdings)} MF holdings, "
+        f"{len(positions)} positions."
+    )
 
-    if not holdings:
+    if not holdings and not mf_holdings:
         _timestamp("No holdings found — nothing to report. Exiting.")
         return
 
-    # ── 4. Enrich with Yahoo Finance prices ──────────────────────
+    # ── 4. Enrich equity holdings with Yahoo Finance prices ──────
     from src.prices import enrich_with_prices, build_portfolio_summary
 
-    _timestamp("Step 3/6 — Enriching holdings with live prices…")
+    _timestamp("Step 3/6 — Enriching equity holdings with live prices…")
     enriched = enrich_with_prices(holdings)
     _timestamp("Price enrichment complete.")
 
     # ── 5. Build portfolio summary ───────────────────────────────
     _timestamp("Step 4/6 — Building portfolio summary…")
-    summary = build_portfolio_summary(enriched)
+    summary = build_portfolio_summary(enriched, mf_holdings)
     _timestamp(
         f"Summary: invested ₹{summary['total_invested']:,.2f}, "
         f"current ₹{summary['total_current_value']:,.2f}, "
@@ -77,7 +82,7 @@ def main() -> None:
     from src.analyst import generate_report
 
     _timestamp("Step 5/6 — Generating report via Gemini API…")
-    report = generate_report(enriched, summary)
+    report = generate_report(enriched, mf_holdings, summary)
     _timestamp(f"Report generated ({len(report)} chars).")
 
     # ── 7. Send email ────────────────────────────────────────────
