@@ -36,9 +36,15 @@ MUTUAL FUND HOLDINGS DATA:
 PORTFOLIO SUMMARY:
 {portfolio_summary}
 
+MARKET RESEARCH CONTEXT (use this data to ground your analysis):
+{research_context}
+
 Generate a visually rich, scannable monthly portfolio review. Use tables,
 bullet points, and visual indicators (🟢🔴📈📉) heavily. Minimize long
 prose — this should be easy to scan on a phone.
+
+IMPORTANT: Reference the FII/DII flow data and research reports provided
+above in your market context section. Cite specific numbers and sources.
 
 Output the report in this exact structure:
 
@@ -77,10 +83,31 @@ Show sector breakdown as a table:
 | Sector | Value | % of Portfolio |
 Include both equity sectors and mutual funds.
 
-# 🌍 Market Context (Keep Brief)
+# 💰 FII/DII Flows
 
-- **India**: 3-4 bullet points on RBI, FII/DII flows, key policy changes
-- **Global**: 3-4 bullet points on Fed, oil, DXY, key risks
+Summarize the latest FII/DII activity using the research data provided:
+- Monthly FII net buy/sell (₹ crores) and trend
+- Monthly DII net buy/sell (₹ crores) and trend
+- What this means for the portfolio
+Cite specific numbers from the data above.
+
+# 🌍 Market Context
+
+**India** (4-5 bullets):
+- RBI stance, repo rate
+- FII/DII flow implications
+- Key policy changes, earnings themes
+- Reference any insights from the research reports above
+
+**Global** (3-4 bullets):
+- Fed, US yields
+- Oil (Brent), DXY
+- Geopolitical risks
+
+# 📑 Research Report Highlights
+
+Summarize key insights from the equity research reports listed above.
+Reference specific reports by name and source.
 
 # 🔍 Key Holdings Review
 
@@ -98,7 +125,7 @@ Numbered list of 3-5 specific actions to take this month:
 
 2-3 stocks/funds worth watching with target entry price.
 
-Keep the ENTIRE report under 3000 words. Be direct, visual, and actionable.
+Keep the ENTIRE report under 3500 words. Be direct, visual, and actionable.
 """
 
 
@@ -106,9 +133,11 @@ def generate_report(
     enriched_holdings: list[dict],
     mf_holdings: list[dict],
     portfolio_summary: dict,
+    research_context: str = "",
 ) -> str:
     """
-    Call Gemini to produce a concise, visual markdown report.
+    Call Gemini to produce a concise, visual markdown report
+    grounded in live market research data.
     """
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
 
@@ -119,6 +148,7 @@ def generate_report(
         portfolio_data=json.dumps(enriched_holdings, indent=2, default=str),
         mf_data=json.dumps(mf_holdings, indent=2, default=str),
         portfolio_summary=json.dumps(portfolio_summary, indent=2, default=str),
+        research_context=research_context or "No research data available.",
     )
 
     gen_config = genai.GenerationConfig(

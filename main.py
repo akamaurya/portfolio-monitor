@@ -78,17 +78,24 @@ def main() -> None:
         f"P&L {summary['total_unrealized_pnl_pct']:+.2f}%"
     )
 
-    # ── 6. Generate Gemini report ────────────────────────────────
+    # ── 6. Gather market research context ────────────────────────
+    from src.research import gather_research_context
+
+    _timestamp("Step 5/7 — Gathering market research context…")
+    research_context = gather_research_context()
+    _timestamp(f"Research context gathered ({len(research_context)} chars).")
+
+    # ── 7. Generate Gemini report ────────────────────────────────
     from src.analyst import generate_report
 
-    _timestamp("Step 5/6 — Generating report via Gemini API…")
-    report = generate_report(enriched, mf_holdings, summary)
+    _timestamp("Step 6/7 — Generating report via Gemini API…")
+    report = generate_report(enriched, mf_holdings, summary, research_context)
     _timestamp(f"Report generated ({len(report)} chars).")
 
-    # ── 7. Send email ────────────────────────────────────────────
+    # ── 8. Send email ────────────────────────────────────────────
     from src.emailer import send_report
 
-    _timestamp("Step 6/6 — Sending HTML email…")
+    _timestamp("Step 7/7 — Sending HTML email…")
     send_report(report, summary)
 
     recipient = os.environ.get("RECIPIENT_EMAIL", "(unknown)")
