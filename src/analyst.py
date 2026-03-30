@@ -140,9 +140,9 @@ def generate_report(
     grounded in live market research data.
     """
     api_keys = [
-        os.environ.get("GEMINI_API_KEY"),
-        os.environ.get("GEMINI_API_KEY_2"),
-        os.environ.get("GEMINI_API_KEY_3"),
+        os.environ.get("GEMINI_API_KEY1"),
+        os.environ.get("GEMINI_API_KEY2"),
+        os.environ.get("GEMINI_API_KEY3"),
     ]
     api_keys = [k for k in api_keys if k and k.strip()]
 
