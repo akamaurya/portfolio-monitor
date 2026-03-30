@@ -157,8 +157,8 @@ def generate_report(
     )
 
     models_to_try = [
-        "gemini-2.5-flash-preview-05-20",
-        "gemini-2.0-flash",
+        "gemini-3.1-pro-preview",
+        "gemini-3.1-flash-preview",
     ]
 
     last_err = None
