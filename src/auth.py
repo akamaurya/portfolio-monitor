@@ -37,6 +37,14 @@ def authenticate() -> KiteConnect:
 
     # ── Step 1: Create HTTP session and login ────────────────────
     session = requests.Session()
+    session.headers.update({
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "X-Kite-Version": "3",
+    })
 
     logger.info("Posting login credentials…")
     login_resp = session.post(
@@ -64,10 +72,16 @@ def authenticate() -> KiteConnect:
             "user_id": user_id,
             "request_id": request_id,
             "twofa_value": totp_code,
-            "twofa_type": "totp",
         },
     )
-    twofa_resp.raise_for_status()
+
+    if twofa_resp.status_code != 200:
+        logger.error(
+            "TOTP request failed (HTTP %s): %s",
+            twofa_resp.status_code, twofa_resp.text,
+        )
+        twofa_resp.raise_for_status()
+
     twofa_data = twofa_resp.json()
 
     if twofa_data.get("status") != "success":
