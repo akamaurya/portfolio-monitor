@@ -1,235 +1,221 @@
-# 📊 Indian Equity & Mutual Fund Portfolio Monitor
+# 📊 Portfolio Monitor
 
-Fully automated monthly portfolio reporting for Zerodha users. Runs on a cron via GitHub Actions — **no laptop needed, no manual steps**.
+[![Tests](https://github.com/akamaurya/portfolio-monitor/actions/workflows/tests.yml/badge.svg)](https://github.com/akamaurya/portfolio-monitor/actions/workflows/tests.yml)
+[![Monthly Report](https://github.com/akamaurya/portfolio-monitor/actions/workflows/monthly_report.yml/badge.svg)](https://github.com/akamaurya/portfolio-monitor/actions/workflows/monthly_report.yml)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
 
-On the 1st of every month it will: authenticate with Zerodha Kite (enctoken-based HTTP login + TOTP), fetch your equity and mutual fund holdings, enrich them with live Yahoo Finance data, gather market research context (FII/DII flows, brokerage reports, key indicators), generate a deep research-grade report via Google Gemini, and email you a beautifully formatted HTML report.
+An unattended monthly research report on your own Zerodha portfolio, delivered to your inbox.
 
-> 🌐 **[Project Showcase →](https://akamaurya.github.io/portfolio-monitor/)**
+On the 1st of every month a GitHub Actions cron logs into Kite, pulls your equity and mutual fund holdings, enriches them with live market data, gathers current market research, has Gemini write an analyst-style review grounded in that research, and emails it as a formatted HTML report. No laptop, no manual steps, no servers, ₹0/month.
+
+> 🌐 **[Project showcase →](https://akamaurya.github.io/portfolio-monitor/)**
 
 ---
 
 ## Architecture
 
 ```
-GitHub Actions (cron: 1st of month, 9:30 AM IST)
+GitHub Actions (cron: 1st of month, 09:30 IST)
   │
-  ├─ 1. auth.py        HTTP login + TOTP → enctoken-based Kite client
-  ├─ 2. portfolio.py    Fetch equity holdings, MF (Coin) holdings & positions
-  ├─ 3. prices.py       Enrich equities with yfinance (price, sector, P/E, 52w range…)
-  ├─ 4. research.py     Gather market research (FII/DII flows, brokerage PDFs, indicators)
-  ├─ 5. analyst.py      Gemini API → visual, scannable research report
-  └─ 6. emailer.py      Send styled HTML email via Gmail SMTP (+ failure alerts)
+  ├─ 1. auth.py       HTTP login + TOTP → enctoken-authenticated Kite client
+  ├─ 2. portfolio.py  Equity holdings, mutual fund (Coin) holdings, open positions
+  ├─ 3. prices.py     yfinance enrichment (price, sector, P/E, 52w range) + aggregation
+  ├─ 4. research.py   FII/DII flows, brokerage report PDFs, macro indicators
+  ├─ 5. analyst.py    Gemini → 11-section markdown report
+  └─ 6. emailer.py    Styled HTML email via Gmail SMTP (+ failure alerts)
 ```
 
-### How Authentication Works
+`main.py` runs these as a 7-step pipeline (auth → fetch → enrich → summarise → research → generate → send) and, if any step raises, emails the traceback before exiting non-zero.
 
-The project authenticates using Zerodha's **enctoken** method — the same mechanism used by Kite's frontend:
+### Authentication without Kite Connect
 
-1. `POST /api/login` with credentials → `request_id`
-2. `POST /api/twofa` with TOTP code → `enctoken` cookie
-3. Use `enctoken` header for all subsequent Kite web API calls
+Kite Connect's OAuth flow needs a paid app and a browser redirect that can't be automated cleanly from CI. This project instead uses the same `enctoken` mechanism Kite's own web frontend uses:
 
-This is fast, headless, and doesn't require a Kite Connect app or OAuth flow.
+1. `POST /api/login` with user ID + password → `request_id`
+2. `POST /api/twofa` with a TOTP generated from your secret → `enctoken` cookie
+3. Send `Authorization: enctoken <token>` on every subsequent Kite web API call
+
+The result is headless, dependency-light (`requests` + `pyotp`, no browser), and free. The trade-off is that these are undocumented internal endpoints, so `src/auth.py` is the module most likely to need maintenance if Zerodha changes them — see [Troubleshooting](#troubleshooting).
+
+### Design notes
+
+A few decisions worth calling out, since they're what make an unattended monthly job trustworthy:
+
+- **Degrade, don't crash.** A missing Yahoo ticker, an empty mutual fund account or an unreachable brokerage PDF each log a warning and continue. Only auth, Gemini and SMTP failures are fatal.
+- **Fallback chain for the LLM.** Three models × up to three API keys, and a response that comes back empty or blocked is treated as a failure so the next combination is tried rather than an empty report being sent.
+- **Fail loudly when it does fail.** Any unhandled exception triggers a failure-alert email with the traceback, so a broken run can't quietly go unnoticed for a month.
+- **Everything is bounded.** Every HTTP and SMTP call has an explicit timeout, and the workflow has a 15-minute cap — a hung request can't burn CI minutes.
+- **IST everywhere.** Runners are UTC, but this is an India-market report; all dates and timestamps go through `src/clock.py` so month labels and the "generated at" stamp are correct.
+- **Pure logic is tested.** Ticker mapping, portfolio aggregation, currency formatting and holdings cleaning are covered by offline unit tests that run on every push.
 
 ---
 
-## One-Time Setup
+## Setup
 
-### a. Get Your TOTP Secret Key
+### 1. Get your TOTP secret
 
 1. Log in to [kite.zerodha.com](https://kite.zerodha.com)
 2. Go to **My Profile → App Authentication (External TOTP)**
-3. When setting up an authenticator app, Zerodha shows a **QR code** and a **text secret key**
-4. The **text secret key** (base32 string like `JBSWY3DPEHPK3PXP`) is your `KITE_TOTP_SECRET`
-5. ⚠️ This is **NOT** the 6-digit code — it's the underlying secret that *generates* the codes
+3. During setup Zerodha shows a QR code **and** a text secret key — the base32 string (like `JBSWY3DPEHPK3PXP`) is your `KITE_TOTP_SECRET`
+4. ⚠️ This is *not* the 6-digit code. It's the secret that generates those codes, so treat it like a password.
 
-### b. Get Gemini API Keys
+### 2. Get Gemini API keys
 
-1. Go to [aistudio.google.com](https://aistudio.google.com) → **Get API Key**
-2. Create **up to 3 API keys** for redundancy — the system tries each key with a fallback model chain
-3. The free tier is more than sufficient (1 request/month)
+1. Go to [aistudio.google.com](https://aistudio.google.com) → **Get API key**
+2. Create up to three keys (from different projects) for redundancy — only the first is required
+3. The free tier is far more than enough: this runs one request per month
 
-### c. Set Up Gmail App Password
+### 3. Create a Gmail app password
 
-1. Go to **Google Account → Security → 2-Step Verification → App Passwords**
-2. Create an App Password for "Mail"
-3. Copy the 16-character password — this is your `GMAIL_APP_PASSWORD`
+1. **Google Account → Security → 2-Step Verification → App passwords**
+2. Create one for "Mail" and copy the 16-character password
 
-### d. Push Code & Add Secrets
+### 4. Add GitHub secrets
 
-1. Create a GitHub repo and push this project
-2. Go to **Settings → Secrets and variables → Actions**
-3. Add each secret:
+Push the repo, then go to **Settings → Secrets and variables → Actions** and add:
 
-| Secret Name         | Description                                          |
-|---------------------|------------------------------------------------------|
-| `KITE_USER_ID`      | Your Zerodha login ID (e.g. `AB1234`)                |
-| `KITE_PASSWORD`     | Your Zerodha login password                          |
-| `KITE_TOTP_SECRET`  | Base32 TOTP secret string (NOT the 6-digit code)     |
-| `GEMINI_API_KEY1`   | Primary Gemini API key from Google AI Studio         |
-| `GEMINI_API_KEY2`   | *(Optional)* Fallback Gemini API key                 |
-| `GEMINI_API_KEY3`   | *(Optional)* Second fallback Gemini API key          |
-| `GMAIL_ADDRESS`     | Gmail address to send from                           |
-| `GMAIL_APP_PASSWORD`| 16-char Gmail App Password                           |
-| `RECIPIENT_EMAIL`   | Email address to receive the report                  |
+| Secret               | Required | Description                                        |
+|----------------------|----------|----------------------------------------------------|
+| `KITE_USER_ID`       | ✅        | Zerodha login ID (e.g. `AB1234`)                   |
+| `KITE_PASSWORD`      | ✅        | Zerodha login password                             |
+| `KITE_TOTP_SECRET`   | ✅        | Base32 TOTP secret (not the 6-digit code)          |
+| `GEMINI_API_KEY1`    | ✅        | Gemini API key from Google AI Studio               |
+| `GEMINI_API_KEY2`    | —        | Fallback Gemini key                                |
+| `GEMINI_API_KEY3`    | —        | Second fallback Gemini key                         |
+| `GMAIL_ADDRESS`      | ✅        | Gmail address to send from                         |
+| `GMAIL_APP_PASSWORD` | ✅        | 16-character Gmail app password                    |
+| `RECIPIENT_EMAIL`    | ✅        | Where the report is delivered                      |
 
-### e. Test It
+### 5. Test it
 
-Go to **Actions → Monthly Portfolio Report → Run workflow** (manual trigger) and check output.
+**Actions → Monthly Portfolio Report → Run workflow** triggers a run immediately.
 
 ---
 
-## Local Development
+## Local development
 
 ```bash
-# 1. Clone the repo
-git clone <your-repo-url> && cd portfolio-monitor
+git clone https://github.com/akamaurya/portfolio-monitor.git
+cd portfolio-monitor
 
-# 2. Create & fill .env
-cp .env.example .env
-# Edit .env with your real credentials
-
-# 3. Install dependencies
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
-# 4. Run
+cp .env.example .env   # fill in your credentials
 python main.py
 ```
+
+`.env` is git-ignored and secrets are never logged — the Gemini key is truncated to four characters in log output, and nothing else prints credentials.
+
+### Tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+The suite is fully offline — no Kite, Yahoo, Gemini or SMTP calls — and runs in CI on every push.
+
+---
+
+## What the report contains
+
+Gemini returns markdown with a fixed 11-section structure, heavy on tables and status indicators so it's scannable on a phone:
+
+| # | Section | Contents |
+|---|---------|----------|
+| 1 | 📊 Portfolio Snapshot | Value, invested, P&L, equity vs. mutual fund split |
+| 2 | 📈 Equity Holdings | Every stock: qty, avg cost, CMP, value, P&L, HOLD/ADD/TRIM/WATCH verdict |
+| 3 | 🏦 Mutual Fund Holdings | Each fund: invested, current, P&L |
+| 4 | 🥇 Winners & Losers | Top and bottom three, with reasons |
+| 5 | 🏗️ Sector Allocation | Exposure by sector, mutual funds included |
+| 6 | 💰 FII/DII Flows | Institutional flows in ₹ crores and portfolio implications |
+| 7 | 🌍 Market Context | India macro (RBI, inflation, policy) and global (Fed, DXY, Brent) |
+| 8 | 📑 Research Highlights | Takeaways from this month's brokerage reports, cited |
+| 9 | 🔍 Key Holdings Review | Deep dive on positions above 5% of the portfolio |
+| 10 | ⚠️ Action Items | 3–5 concrete moves with rationale |
+| 11 | 🎯 Watchlist | 2–3 ideas with target entry prices |
+
+### Research grounding
+
+Before the report is generated, `research.py` collects live context so the analysis references current data rather than the model's training cut-off:
+
+- **FII/DII flows** — monthly net buy/sell figures via web search
+- **Brokerage reports** — PDFs from ICICI Direct (sector updates, market strategy, model portfolio) and HDFC Securities, with text extracted via `pypdf`
+- **Macro indicators** — Nifty 50, repo rate, CPI, Brent crude, INR/USD
+
+Each source is best-effort: whatever is reachable that month goes into the prompt, and the report is still generated if none of it is.
 
 ---
 
 ## Cost
 
-| Service                | Free Tier                                     | This Project Uses         |
-|------------------------|-----------------------------------------------|---------------------------|
-| Zerodha (enctoken)     | Free — no Kite Connect app needed             | 1 login/month             |
-| Yahoo Finance (yfinance)| Unlimited                                    | ~20-50 ticker lookups     |
-| Google Gemini API      | 50 req/day (Pro), 1500/day (Flash)            | **1 request/month**       |
-| Gmail SMTP             | 500 emails/day                                | 1-2 emails/month          |
-| GitHub Actions         | 2000 min/month (free tier)                    | ~3 min/month              |
+| Service            | Free tier                          | This project uses     |
+|--------------------|------------------------------------|-----------------------|
+| Zerodha Kite       | Free — no Kite Connect app needed  | 1 login/month         |
+| Yahoo Finance      | Unlimited                          | ~20–50 lookups/month  |
+| Google Gemini API  | Generous free tier                 | 1 request/month       |
+| Gmail SMTP         | 500 emails/day                     | 1–2 emails/month      |
+| GitHub Actions     | 2,000 minutes/month                | ~5 minutes/month      |
 
-**Total cost: ₹0/month.**
-
----
-
-## What the Report Covers
-
-The Gemini-generated report is visually rich, scannable, and uses tables & emoji indicators throughout:
-
-1. **📊 Portfolio Snapshot** — total value, invested, P&L with equity/MF breakdown
-2. **📈 Equity Holdings** — full table with qty, avg cost, CMP, value, P&L %, and verdict (HOLD/ADD/TRIM/WATCH)
-3. **🏦 Mutual Fund Holdings** — all MF holdings with invested vs. current value
-4. **🥇 Winners & Losers** — top 3 performers and bottom 3 with reasons
-5. **🏗️ Sector Allocation** — sector breakdown table including MF allocation
-6. **💰 FII/DII Flows** — latest foreign & domestic institutional flow data with portfolio implications
-7. **🌍 Market Context** — India macro (RBI, inflation, policy) and Global (Fed, DXY, oil, geopolitics)
-8. **📑 Research Report Highlights** — insights from brokerage reports (ICICI Direct, HDFC Securities, etc.)
-9. **🔍 Key Holdings Review** — deep dive on top holdings with valuation & action items
-10. **⚠️ Action Items** — 3-5 specific actions for the month
-11. **🎯 Watchlist** — 2-3 stocks/funds to track with target entry prices
-
-### Market Research Integration
-
-Before generating the report, the pipeline gathers live market research context:
-
-- **FII/DII flow data** — scraped via web search (monthly net buy/sell in ₹ crores)
-- **Brokerage reports** — downloads PDFs from ICICI Direct (sector updates, market strategy, model portfolio) and HDFC Securities, extracts key text
-- **Market indicators** — Nifty 50, RBI repo rate, CPI inflation, Brent crude, INR/USD rate
-
-This grounding data is passed to Gemini so the report references real, current market data — not just the model's training knowledge.
-
----
-
-## Gemini Model Fallback
-
-The system tries multiple Gemini models with multiple API keys for maximum reliability:
-
-```
-gemini-3.1-pro-preview  →  gemini-3-flash-preview  →  gemini-3.1-flash-lite-preview
-         ×                          ×                            ×
-     Key 1, 2, 3              Key 1, 2, 3                 Key 1, 2, 3
-```
-
-If a model + key combination fails, it moves to the next. Only if **all** combinations fail does the pipeline error out — and even then, a failure notification email is sent so you know it broke.
-
----
-
-## Failure Notifications
-
-If the pipeline crashes at any step, the system attempts to send a failure notification email with the full stack trace. This ensures broken runs never go unnoticed, even if you're not checking GitHub Actions.
+**Total: ₹0/month.**
 
 ---
 
 ## Troubleshooting
 
-### TOTP Issues
-`pyotp` generates codes using the system clock. On GitHub Actions runners, the clock is always synced. If testing locally, ensure your machine's time is accurate.
+**Login fails.** `src/auth.py` uses undocumented Kite web endpoints. Check that `/api/login` still returns `{"status": "success", "data": {"request_id": ...}}` and that `/api/twofa` still sets an `enctoken` cookie; compare against Kite's own network traffic in browser DevTools.
 
-### Login Failures
-The auth module uses Kite's web API endpoints (`/api/login` and `/api/twofa`). If Zerodha changes their API:
-1. Check the response from `/api/login` — it should return `{"status": "success", "data": {"request_id": "..."}}`
-2. Check the response from `/api/twofa` — it should set an `enctoken` cookie
-3. Compare with Kite's frontend behavior in browser DevTools
+**TOTP rejected.** `pyotp` uses the system clock. Runners are NTP-synced; if you're running locally, check your machine's time.
 
-### yfinance Failures
-Some Indian ETFs and mutual funds have inconsistent Yahoo Finance tickers. The code:
-- Falls back to Kite's last price if Yahoo returns nothing
-- Logs a warning but **never crashes** on a single ticker failure
-- Has a hardcoded override map in `src/prices.py` — add new mappings there
+**A stock shows no price.** Some Indian ETFs have irregular Yahoo tickers. The code falls back to Kite's last traded price and logs a warning; add a permanent mapping to `_TICKER_OVERRIDES` in `src/prices.py`.
 
-### Email Not Received
-- Check spam/junk folder
-- Verify `GMAIL_APP_PASSWORD` is an **App Password**, not your login password
-- Ensure 2-Step Verification is enabled on the Gmail account
+**No email arrived.** Check spam, confirm `GMAIL_APP_PASSWORD` is an app password rather than the account password, and that 2-Step Verification is on.
 
-### Gemini API Errors
-- Verify your API keys are valid at [aistudio.google.com](https://aistudio.google.com)
-- The system tries 3 models × 3 keys (up to 9 attempts) — check logs for specific error messages
-- Model names may change; update `models_to_try` in `src/analyst.py` if needed
+**Gemini errors.** Up to nine model/key combinations are attempted — the logs name the failure for each. Preview model IDs change; update `models_to_try` in `src/analyst.py` if they're retired.
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 portfolio-monitor/
 ├── .github/workflows/
-│   └── monthly_report.yml      ← GitHub Actions cron + manual trigger
-├── docs/
-│   ├── index.html              ← GitHub Pages showcase site
-│   ├── style.css
-│   └── script.js
+│   ├── monthly_report.yml   ← cron + manual trigger for the report
+│   └── tests.yml            ← pytest on every push
+├── docs/                    ← GitHub Pages showcase (static HTML/CSS/JS)
 ├── src/
-│   ├── __init__.py
-│   ├── auth.py                 ← HTTP login + TOTP → enctoken client
-│   ├── portfolio.py            ← Equity + MF holdings + positions fetcher
-│   ├── prices.py               ← yfinance enrichment + portfolio summary
-│   ├── research.py             ← Market research context (FII/DII, reports, indicators)
-│   ├── analyst.py              ← Gemini report generator (multi-model/key fallback)
-│   └── emailer.py              ← Gmail HTML email sender + failure notifications
-├── main.py                     ← Single entry point (7-step pipeline)
+│   ├── auth.py              ← HTTP login + TOTP → enctoken client
+│   ├── portfolio.py         ← Holdings, MF holdings, positions
+│   ├── prices.py            ← yfinance enrichment + portfolio aggregation
+│   ├── research.py          ← FII/DII flows, brokerage PDFs, indicators
+│   ├── analyst.py           ← Gemini report generation with fallbacks
+│   ├── emailer.py           ← HTML email + failure alerts
+│   └── clock.py             ← IST-aware clock for a UTC runner
+├── tests/                   ← Offline unit tests
+├── main.py                  ← Pipeline entry point
 ├── requirements.txt
-├── .env.example
-└── README.md
+├── requirements-dev.txt
+└── .env.example
 ```
 
 ---
 
-## Tech Stack
+## Tech stack
 
-| Component       | Technology                                         |
-|-----------------|---------------------------------------------------|
-| Language        | Python 3.11                                        |
-| Auth            | `requests` + `pyotp` (enctoken method)             |
-| Market Data     | `yfinance`                                         |
-| Research        | Web scraping + `pypdf` for brokerage PDF extraction |
-| AI              | Google `google-genai` SDK (Gemini 3.1 Pro/Flash)   |
-| Email           | `smtplib` + `markdown` → styled HTML               |
-| Automation      | GitHub Actions (monthly cron)                      |
-| Showcase        | GitHub Pages (static HTML/CSS/JS)                  |
+| Component    | Technology                                        |
+|--------------|---------------------------------------------------|
+| Language     | Python 3.11                                       |
+| Auth         | `requests` + `pyotp` (enctoken flow)              |
+| Market data  | `yfinance`                                        |
+| Research     | DuckDuckGo HTML search + `pypdf` PDF extraction   |
+| AI           | `google-genai` (Gemini 3.1 Pro / Flash)           |
+| Email        | `smtplib` + `markdown` → styled HTML              |
+| Automation   | GitHub Actions (monthly cron)                     |
+| Showcase     | GitHub Pages                                      |
 
 ---
 
-## License
+## Disclaimer
 
-Private use. Not affiliated with Zerodha, Google, or Yahoo.
+A personal project, not affiliated with or endorsed by Zerodha, Google or Yahoo. It automates a login flow using undocumented endpoints, which Zerodha may change or disallow at any time. Nothing it produces is investment advice.
