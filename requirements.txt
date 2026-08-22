@@ -1,7 +1,9 @@
-requests
-pyotp
-yfinance
-google-genai
-python-dotenv
-markdown
-pypdf
+# Version floors keep the unattended monthly run reproducible; the upper
+# bounds stop a surprise major release from breaking a job nobody is watching.
+requests>=2.32,<3
+pyotp>=2.9,<3
+yfinance>=0.2.55,<2
+google-genai>=1.0,<3
+python-dotenv>=1.0,<2
+markdown>=3.5,<4
+pypdf>=4.0,<7
