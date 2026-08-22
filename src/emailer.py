@@ -6,11 +6,12 @@ import os
 import ssl
 import logging
 import smtplib
-from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 import markdown
+
+from src.clock import now_ist
 
 logger = logging.getLogger(__name__)
 
@@ -222,26 +223,44 @@ _HTML_TEMPLATE = """\
 
 
 def _format_inr(val) -> str:
-    """Format a number with comma grouping."""
+    """
+    Format a number using the Indian digit grouping convention
+    (₹12,34,567 rather than ₹1,234,567).
+    """
     if val is None:
         return "—"
     try:
         val = float(val)
-        sign = "-" if val < 0 else ""
-        val = abs(val)
-        s = f"{val:,.0f}" if val >= 1000 else f"{val:,.2f}"
-        return f"{sign}{s}"
     except (ValueError, TypeError):
         return str(val)
 
+    sign = "-" if val < 0 else ""
+    val = abs(val)
 
-def send_report(report_markdown: str, portfolio_summary: dict) -> None:
-    """Convert markdown report to styled HTML and send via Gmail SMTP."""
-    gmail_address = os.environ["GMAIL_ADDRESS"]
-    gmail_password = os.environ["GMAIL_APP_PASSWORD"]
-    recipient = os.environ["RECIPIENT_EMAIL"]
+    if val < 1000:
+        return f"{sign}{val:,.2f}"
 
-    now = datetime.now()
+    whole = f"{val:.0f}"
+    # Last 3 digits, then groups of 2: 1234567 → 12,34,567
+    head, tail = whole[:-3], whole[-3:]
+    groups = []
+    while len(head) > 2:
+        head, group = head[:-2], head[-2:]
+        groups.insert(0, group)
+    if head:
+        groups.insert(0, head)
+
+    return f"{sign}{','.join(groups + [tail])}"
+
+
+def render_email(report_markdown: str, portfolio_summary: dict) -> tuple[str, str]:
+    """
+    Render the report into (subject, html_body).
+
+    Kept separate from sending so the template can be exercised in tests —
+    a missing placeholder here would otherwise only surface once a month.
+    """
+    now = now_ist()
     month_year = now.strftime("%B %Y")
     generated_at = now.strftime("%d %b %Y, %I:%M %p IST")
 
@@ -281,11 +300,21 @@ def send_report(report_markdown: str, portfolio_summary: dict) -> None:
         report_html=report_html,
     )
 
-    # Build email
     subject = (
         f"📊 Portfolio — {month_year} "
         f"| ₹{current_value} | {pnl_pct:+.2f}%"
     )
+
+    return subject, full_html
+
+
+def send_report(report_markdown: str, portfolio_summary: dict) -> None:
+    """Render the report as styled HTML and send it via Gmail SMTP."""
+    gmail_address = os.environ["GMAIL_ADDRESS"]
+    gmail_password = os.environ["GMAIL_APP_PASSWORD"]
+    recipient = os.environ["RECIPIENT_EMAIL"]
+
+    subject, full_html = render_email(report_markdown, portfolio_summary)
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
@@ -299,7 +328,7 @@ def send_report(report_markdown: str, portfolio_summary: dict) -> None:
 
     # Send via Gmail SMTP‑SSL
     context = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=60) as server:
         server.login(gmail_address, gmail_password)
         server.sendmail(gmail_address, recipient, msg.as_string())
 
@@ -316,7 +345,7 @@ def send_failure_notification(error_msg: str) -> None:
         logger.error("Cannot send failure email — SMTP env vars missing.")
         return
 
-    now = datetime.now()
+    now = now_ist()
     subject = f"⚠️ Portfolio Monitor FAILED — {now.strftime('%d %b %Y')}"
     body = (
         f"The monthly portfolio report failed at {now.isoformat()}.\n\n"
@@ -331,7 +360,7 @@ def send_failure_notification(error_msg: str) -> None:
 
     try:
         context = ssl.create_default_context()
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=60) as server:
             server.login(gmail_address, gmail_password)
             server.sendmail(gmail_address, recipient, msg.as_string())
         logger.info("Failure notification sent to %s.", recipient)

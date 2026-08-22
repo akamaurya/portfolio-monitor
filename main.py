@@ -12,7 +12,13 @@ import os
 import sys
 import logging
 import traceback
-from datetime import datetime
+
+from src.analyst import generate_report
+from src.auth import authenticate
+from src.emailer import send_failure_notification, send_report
+from src.portfolio import get_holdings
+from src.prices import build_portfolio_summary, enrich_with_prices
+from src.research import gather_research_context
 
 # ── Logging ──────────────────────────────────────────────────────
 logging.basicConfig(
@@ -22,84 +28,71 @@ logging.basicConfig(
 )
 logger = logging.getLogger("portfolio-monitor")
 
+TOTAL_STEPS = 7
 
-def _timestamp(msg: str) -> None:
-    logger.info(msg)
+
+def _step(number: int, msg: str) -> None:
+    logger.info("Step %d/%d — %s", number, TOTAL_STEPS, msg)
 
 
 def main() -> None:
-    # ── 1. Load .env (skip in CI where secrets are injected) ─────
+    # ── Load .env (skip in CI where secrets are injected) ─────────
     if not os.environ.get("GITHUB_ACTIONS"):
         try:
             from dotenv import load_dotenv
             load_dotenv()
-            _timestamp("Loaded .env file.")
+            logger.info("Loaded .env file.")
         except ImportError:
-            _timestamp("python-dotenv not installed — assuming env vars are already set.")
+            logger.info("python-dotenv not installed — assuming env vars are already set.")
 
-    # ── 2. Authenticate with Kite ────────────────────────────────
-    from src.auth import authenticate
-
-    _timestamp("Step 1/6 — Authenticating with Kite…")
+    # ── 1. Authenticate with Kite ────────────────────────────────
+    _step(1, "Authenticating with Kite…")
     kite = authenticate()
-    _timestamp("Authentication successful.")
+    logger.info("Authentication successful.")
 
-    # ── 3. Fetch holdings & positions ────────────────────────────
-    from src.portfolio import get_holdings
-
-    _timestamp("Step 2/6 — Fetching holdings and positions…")
+    # ── 2. Fetch holdings & positions ────────────────────────────
+    _step(2, "Fetching holdings and positions…")
     portfolio_data = get_holdings(kite)
     holdings = portfolio_data["holdings"]
     mf_holdings = portfolio_data["mf_holdings"]
-    positions = portfolio_data["positions"]
-    _timestamp(
-        f"Fetched {len(holdings)} equity holdings, "
-        f"{len(mf_holdings)} MF holdings, "
-        f"{len(positions)} positions."
+    logger.info(
+        "Fetched %d equity holdings, %d MF holdings, %d open positions.",
+        len(holdings), len(mf_holdings), len(portfolio_data["positions"]),
     )
 
     if not holdings and not mf_holdings:
-        _timestamp("No holdings found — nothing to report. Exiting.")
+        logger.info("No holdings found — nothing to report. Exiting.")
         return
 
-    # ── 4. Enrich equity holdings with Yahoo Finance prices ──────
-    from src.prices import enrich_with_prices, build_portfolio_summary
-
-    _timestamp("Step 3/6 — Enriching equity holdings with live prices…")
+    # ── 3. Enrich equity holdings with Yahoo Finance prices ──────
+    _step(3, "Enriching equity holdings with live prices…")
     enriched = enrich_with_prices(holdings)
-    _timestamp("Price enrichment complete.")
+    logger.info("Price enrichment complete.")
 
-    # ── 5. Build portfolio summary ───────────────────────────────
-    _timestamp("Step 4/6 — Building portfolio summary…")
+    # ── 4. Build portfolio summary ───────────────────────────────
+    _step(4, "Building portfolio summary…")
     summary = build_portfolio_summary(enriched, mf_holdings)
-    _timestamp(
-        f"Summary: invested ₹{summary['total_invested']:,.2f}, "
-        f"current ₹{summary['total_current_value']:,.2f}, "
-        f"P&L {summary['total_unrealized_pnl_pct']:+.2f}%"
+    logger.info(
+        "Summary: invested ₹%s, current ₹%s, P&L %+.2f%%",
+        f"{summary['total_invested']:,.2f}",
+        f"{summary['total_current_value']:,.2f}",
+        summary["total_unrealized_pnl_pct"],
     )
 
-    # ── 6. Gather market research context ────────────────────────
-    from src.research import gather_research_context
-
-    _timestamp("Step 5/7 — Gathering market research context…")
+    # ── 5. Gather market research context ────────────────────────
+    _step(5, "Gathering market research context…")
     research_context = gather_research_context()
-    _timestamp(f"Research context gathered ({len(research_context)} chars).")
+    logger.info("Research context gathered (%d chars).", len(research_context))
 
-    # ── 7. Generate Gemini report ────────────────────────────────
-    from src.analyst import generate_report
-
-    _timestamp("Step 6/7 — Generating report via Gemini API…")
+    # ── 6. Generate Gemini report ────────────────────────────────
+    _step(6, "Generating report via Gemini API…")
     report = generate_report(enriched, mf_holdings, summary, research_context)
-    _timestamp(f"Report generated ({len(report)} chars).")
+    logger.info("Report generated (%d chars).", len(report))
 
-    # ── 8. Send email ────────────────────────────────────────────
-    from src.emailer import send_report
-
-    _timestamp("Step 7/7 — Sending HTML email…")
+    # ── 7. Send email ────────────────────────────────────────────
+    _step(7, "Sending HTML email…")
     send_report(report, summary)
-
-    recipient = os.environ.get("RECIPIENT_EMAIL", "(unknown)")
-    _timestamp(f"Done. Report sent to {recipient}")
+    logger.info("Done. Report sent to %s", os.environ.get("RECIPIENT_EMAIL", "(unknown)"))
 
 
 if __name__ == "__main__":
@@ -109,11 +102,8 @@ if __name__ == "__main__":
         tb = traceback.format_exc()
         logger.error("Pipeline failed:\n%s", tb)
 
-        # Try to send a failure notification so you know it broke
-        try:
-            from src.emailer import send_failure_notification
-            send_failure_notification(tb)
-        except Exception as mail_err:
-            logger.error("Could not send failure notification: %s", mail_err)
+        # Best-effort alert so a broken run doesn't go unnoticed
+        # (send_failure_notification never raises).
+        send_failure_notification(tb)
 
         sys.exit(1)

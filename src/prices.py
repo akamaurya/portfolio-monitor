@@ -28,7 +28,9 @@ _TICKER_OVERRIDES: dict[str, str] = {
 
 def _build_ticker(symbol: str, exchange: str) -> str:
     """Convert a Kite symbol + exchange into a Yahoo Finance ticker."""
-    clean = symbol.rstrip("-E").rstrip("-T")   # strip settlement suffixes
+    # removesuffix, not rstrip: rstrip("-E") strips *characters*, which would
+    # turn HDFCLIFE into HDFCLIF and PERSISTENT into PERSISTEN.
+    clean = symbol.removesuffix("-E").removesuffix("-T")   # settlement suffixes
 
     if clean in _TICKER_OVERRIDES:
         return _TICKER_OVERRIDES[clean]
@@ -152,7 +154,10 @@ def enrich_with_prices(holdings: list[dict]) -> list[dict]:
     return enriched
 
 
-def build_portfolio_summary(enriched_holdings: list[dict], mf_holdings: list[dict] = None) -> dict:
+def build_portfolio_summary(
+    enriched_holdings: list[dict],
+    mf_holdings: list[dict] | None = None,
+) -> dict:
     """
     Aggregate portfolio‑level stats from enriched equity + MF holdings.
     """
@@ -231,9 +236,11 @@ def build_portfolio_summary(enriched_holdings: list[dict], mf_holdings: list[dic
             {"symbol": s["symbol"], "pnl_pct": s["unrealized_pnl_pct"]}
             for s in scored[:3]
         ],
+        # Worst first, and never repeating a holding already listed as a winner
+        # (which is what a naive scored[-3:] does with fewer than 6 holdings).
         "top_3_laggards": [
             {"symbol": s["symbol"], "pnl_pct": s["unrealized_pnl_pct"]}
-            for s in scored[-3:]
+            for s in reversed(scored[max(len(scored) - 3, 3):])
         ],
     }
 

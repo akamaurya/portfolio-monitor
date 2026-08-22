@@ -5,10 +5,11 @@ Generate a visual, concise portfolio report via Google Gemini.
 import os
 import json
 import logging
-from datetime import datetime
 
 from google import genai
 from google.genai import types
+
+from src.clock import now_ist
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ def generate_report(
     if not api_keys:
         raise ValueError("No Gemini API keys found in environment variables.")
 
-    now = datetime.now()
+    now = now_ist()
     prompt = _PROMPT_TEMPLATE.format(
         month_year=now.strftime("%B %Y"),
         today=now.strftime("%d %B %Y"),
@@ -194,7 +195,15 @@ def generate_report(
                         getattr(meta, "total_token_count", "?"),
                     )
 
+                # A blocked or truncated response yields text=None; treat that
+                # as a failure and fall through to the next model/key instead
+                # of emailing an empty report.
                 report_text = response.text
+                if not report_text or not report_text.strip():
+                    candidates = getattr(response, "candidates", None) or []
+                    finish_reason = getattr(candidates[0], "finish_reason", "?") if candidates else "?"
+                    raise RuntimeError(f"empty response (finish_reason: {finish_reason})")
+
                 logger.info("Report generated (%d chars) using %s.", len(report_text), model_name)
                 return report_text
 

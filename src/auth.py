@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 BASE_URL = "https://kite.zerodha.com"
 
+# Every network call is bounded — an unbounded request would hang the whole
+# scheduled run until the GitHub Actions job timeout kills it.
+_TIMEOUT = 30
+
 
 class KiteWeb:
     """
@@ -42,7 +46,7 @@ class KiteWeb:
 
     def _get(self, path: str) -> dict:
         url = f"{BASE_URL}{path}"
-        resp = self._session.get(url)
+        resp = self._session.get(url, timeout=_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
         if data.get("status") == "error":
@@ -89,6 +93,7 @@ def authenticate() -> KiteWeb:
     login_resp = session.post(
         f"{BASE_URL}/api/login",
         data={"user_id": user_id, "password": password},
+        timeout=_TIMEOUT,
     )
     login_resp.raise_for_status()
     login_data = login_resp.json()
@@ -112,6 +117,7 @@ def authenticate() -> KiteWeb:
             "request_id": request_id,
             "twofa_value": totp_code,
         },
+        timeout=_TIMEOUT,
     )
 
     if twofa_resp.status_code != 200:

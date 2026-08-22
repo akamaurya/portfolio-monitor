@@ -36,7 +36,16 @@ revealEls.forEach((el) => {
 // ─── Smooth anchor scroll (fallback for old browsers) ───
 document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
   anchor.addEventListener('click', function (e) {
-    const target = document.querySelector(this.getAttribute('href'));
+    const href = this.getAttribute('href');
+
+    // "#" alone is not a valid selector — querySelector('#') throws.
+    if (href === '#') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    const target = document.querySelector(href);
     if (target) {
       e.preventDefault();
       target.scrollIntoView({ behavior: 'smooth', block: 'start' });

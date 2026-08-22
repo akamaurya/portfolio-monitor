@@ -14,9 +14,12 @@ All data is aggregated as text to feed into the Gemini prompt.
 import io
 import logging
 import re
-from datetime import datetime
+from datetime import timedelta
+from urllib.parse import parse_qs, urlparse
 
 import requests
+
+from src.clock import now_ist
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +58,13 @@ def _download_pdf(url: str, timeout: int = 20) -> bytes | None:
     """Download a PDF file. Returns bytes or None on failure."""
     try:
         resp = requests.get(url, headers=_HEADERS, timeout=timeout)
-        if resp.status_code == 200 and len(resp.content) > 1000:
+        # Missing reports are often served as a 200 HTML error page, so check
+        # the PDF magic bytes rather than trusting the status code alone.
+        if (
+            resp.status_code == 200
+            and len(resp.content) > 1000
+            and resp.content[:4] == b"%PDF"
+        ):
             return resp.content
         logger.info("PDF not found or too small: %s (HTTP %s)", url, resp.status_code)
         return None
@@ -73,12 +82,15 @@ def _fetch_icici_reports() -> list[dict]:
     Their PDFs live at: https://www.icicidirect.com/mailcontent/
     Naming convention: idirect_{topic}_{date}.pdf
     """
-    now = datetime.now()
+    now = now_ist()
     year_short = now.strftime("%y")  # e.g. "26"
     month_short = now.strftime("%b").lower()  # e.g. "mar"
-    month_num = now.strftime("%m")  # e.g. "03"
     year_full = now.strftime("%Y")  # e.g. "2026"
-    day = now.strftime("%d")
+
+    # Market wraps are dated; the report runs on the 1st, so "yesterday" has to
+    # roll back across the month/year boundary rather than doing day - 1.
+    today_stamp = now.strftime("%d%m%y")
+    yesterday_stamp = (now - timedelta(days=1)).strftime("%d%m%y")
 
     base = "https://www.icicidirect.com/mailcontent"
 
@@ -97,8 +109,8 @@ def _fetch_icici_reports() -> list[dict]:
         (f"{base}/idirect_metalsectorupdate_{month_short}{year_short}.pdf", "ICICI Metal Sector Update"),
         (f"{base}/idirect_fmcgsectorupdate_{month_short}{year_short}.pdf", "ICICI FMCG Sector Update"),
         # Market wraps (try a few recent dates)
-        (f"{base}/idirect_marketwrap_{day}{month_num}{year_short}.pdf", "ICICI Market Wrap"),
-        (f"{base}/idirect_marketwrap_{int(day)-1:02d}{month_num}{year_short}.pdf", "ICICI Market Wrap"),
+        (f"{base}/idirect_marketwrap_{today_stamp}.pdf", "ICICI Market Wrap"),
+        (f"{base}/idirect_marketwrap_{yesterday_stamp}.pdf", "ICICI Market Wrap"),
         # Model portfolio
         (f"{base}/idirect_modelportfolio_{month_short}{year_short}.pdf", "ICICI Model Portfolio"),
         # Monthly outlook
@@ -140,7 +152,7 @@ def _fetch_hdfc_reports() -> list[dict]:
     reports = []
 
     # Search DuckDuckGo for recent HDFC reports
-    now = datetime.now()
+    now = now_ist()
     month = now.strftime("%B %Y")
     query = f"site:hdfcsec.com research report {month} sector strategy"
 
@@ -176,6 +188,24 @@ def _fetch_hdfc_reports() -> list[dict]:
 # ─────────────────────────────────────────────────────────────────
 # Web search helper
 # ─────────────────────────────────────────────────────────────────
+def _resolve_ddg_url(href: str) -> str:
+    """
+    Turn a DuckDuckGo result href into the real target URL.
+
+    DDG wraps results as `//duckduckgo.com/l/?uddg=<url-encoded target>`, which
+    is neither fetchable (no scheme) nor useful as a citation in the report.
+    """
+    if href.startswith("//"):
+        href = f"https:{href}"
+
+    parsed = urlparse(href)
+    if "duckduckgo.com" in parsed.netloc:
+        target = parse_qs(parsed.query).get("uddg", [""])[0]
+        if target:
+            return target
+    return href
+
+
 def _web_search_snippets(query: str, num_results: int = 5) -> list[dict]:
     """
     Perform a lightweight web search via DuckDuckGo HTML.
@@ -204,7 +234,7 @@ def _web_search_snippets(query: str, num_results: int = 5) -> list[dict]:
             results.append({
                 "title": title_clean,
                 "snippet": snippet_clean,
-                "url": url,
+                "url": _resolve_ddg_url(url),
             })
 
     except Exception as exc:
@@ -218,7 +248,7 @@ def _web_search_snippets(query: str, num_results: int = 5) -> list[dict]:
 # ─────────────────────────────────────────────────────────────────
 def fetch_fii_dii_data() -> str:
     """Fetch recent FII/DII flow data via web search."""
-    now = datetime.now()
+    now = now_ist()
     month = now.strftime("%B %Y")
 
     queries = [
@@ -263,7 +293,7 @@ def fetch_research_reports() -> str:
     logger.info("Found %d HDFC Securities reports.", len(hdfc_reports))
 
     # ── Other brokerages (via search) ────────────────────────────
-    now = datetime.now()
+    now = now_ist()
     month = now.strftime("%B %Y")
     extra_queries = [
         f"Motilal Oswal India strategy report {month}",
@@ -288,7 +318,7 @@ def fetch_research_reports() -> str:
         sections.append(
             f"### {rpt['source']}: {rpt['title']}\n"
             f"URL: {rpt['url']}\n"
-            f"{'---'}\n"
+            "---\n"
             f"{rpt['text']}\n"
         )
 
@@ -300,7 +330,7 @@ def fetch_research_reports() -> str:
 # ─────────────────────────────────────────────────────────────────
 def fetch_market_indicators() -> str:
     """Fetch key market indicators via web search."""
-    now = datetime.now()
+    now = now_ist()
     month = now.strftime("%B %Y")
 
     queries = [
