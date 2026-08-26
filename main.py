@@ -3,7 +3,9 @@
 Portfolio Monitor — main entry point.
 
 Usage:
-    python main.py
+    python main.py                  # live run: real holdings, real email
+    python main.py --demo           # hypothetical portfolio, everything else live
+    python main.py --demo --preview # …and write the email to disk instead of sending
 
 Requires environment variables (see .env.example).
 """
@@ -11,11 +13,12 @@ Requires environment variables (see .env.example).
 import os
 import sys
 import logging
+import pathlib
 import traceback
 
 from src.analyst import generate_report
 from src.auth import authenticate
-from src.emailer import send_failure_notification, send_report
+from src.emailer import render_email, send_failure_notification, send_report
 from src.portfolio import get_holdings
 from src.prices import build_portfolio_summary, enrich_with_prices
 from src.research import gather_research_context
@@ -30,12 +33,26 @@ logger = logging.getLogger("portfolio-monitor")
 
 TOTAL_STEPS = 7
 
+PREVIEW_PATH = pathlib.Path("out/preview.html")
+
 
 def _step(number: int, msg: str) -> None:
     logger.info("Step %d/%d — %s", number, TOTAL_STEPS, msg)
 
 
+def _write_preview(report: str, summary: dict) -> None:
+    """Render the email to a file so the template can be reviewed without
+    sending anything."""
+    _, html = render_email(report, summary)
+    PREVIEW_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PREVIEW_PATH.write_text(html, encoding="utf-8")
+    logger.info("Preview written to %s (nothing sent).", PREVIEW_PATH.resolve())
+
+
 def main() -> None:
+    demo = "--demo" in sys.argv or os.environ.get("DEMO_MODE") == "1"
+    preview = "--preview" in sys.argv
+
     # ── Load .env (skip in CI where secrets are injected) ─────────
     if not os.environ.get("GITHUB_ACTIONS"):
         try:
@@ -46,12 +63,17 @@ def main() -> None:
             logger.info("python-dotenv not installed — assuming env vars are already set.")
 
     # ── 1. Authenticate with Kite ────────────────────────────────
-    _step(1, "Authenticating with Kite…")
-    kite = authenticate()
-    logger.info("Authentication successful.")
+    if demo:
+        _step(1, "Authenticating with Kite… [DEMO — skipped]")
+        from src.demo import demo_kite
+        kite = demo_kite()
+    else:
+        _step(1, "Authenticating with Kite…")
+        kite = authenticate()
+        logger.info("Authentication successful.")
 
     # ── 2. Fetch holdings & positions ────────────────────────────
-    _step(2, "Fetching holdings and positions…")
+    _step(2, "Fetching holdings and positions…" + (" [DEMO fixture]" if demo else ""))
     portfolio_data = get_holdings(kite)
     holdings = portfolio_data["holdings"]
     mf_holdings = portfolio_data["mf_holdings"]
@@ -90,6 +112,11 @@ def main() -> None:
     logger.info("Report generated (%d chars).", len(report))
 
     # ── 7. Send email ────────────────────────────────────────────
+    if preview:
+        _step(7, "Rendering HTML email… [PREVIEW — not sending]")
+        _write_preview(report, summary)
+        return
+
     _step(7, "Sending HTML email…")
     send_report(report, summary)
     logger.info("Done. Report sent to %s", os.environ.get("RECIPIENT_EMAIL", "(unknown)"))
