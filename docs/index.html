@@ -4,44 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Portfolio Monitor — Automated Monthly Investment Reports</title>
-  <meta name="description" content="Fully automated monthly portfolio reporting for Zerodha users. Zero-touch pipeline powered by GitHub Actions, Gemini AI, and live market data." />
-  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="description" content="A monthly portfolio research note for Zerodha users, written by Gemini from live holdings and market data, and delivered by GitHub Actions. No servers, no cost." />
+  <meta name="theme-color" content="#FFFFFF" />
+  <meta name="color-scheme" content="light" />
 
-  <!-- Open Graph -->
   <meta property="og:title" content="Portfolio Monitor" />
-  <meta property="og:description" content="Automated monthly investment reports for Zerodha portfolios. Powered by Gemini AI." />
+  <meta property="og:description" content="A monthly portfolio research note for Zerodha users, written by Gemini from live holdings and market data." />
   <meta property="og:type" content="website" />
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <meta property="og:image" content="assets/report-email-top.png" />
 
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+<div class="sheet">
 
-  <!-- ─── Ambient Background ─── -->
-  <div class="ambient-bg">
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="orb orb-3"></div>
-  </div>
-
-  <!-- ─── Navigation ─── -->
+  <!-- ─── Masthead ─── -->
   <nav class="nav" id="nav">
     <div class="nav-inner">
-      <a href="#" class="nav-logo">
-        <span class="nav-logo-icon">📊</span>
-        <span class="nav-logo-text">Portfolio Monitor</span>
-      </a>
+      <a href="#" class="nav-logo">Portfolio Monitor</a>
       <div class="nav-links">
-        <a href="#features">Features</a>
         <a href="#pipeline">Pipeline</a>
-        <a href="#report">Report</a>
+        <a href="#report">The note</a>
         <a href="#setup">Setup</a>
+        <a href="#cost">Cost</a>
         <a href="https://github.com/akamaurya/portfolio-monitor" target="_blank" rel="noopener" class="nav-github">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
           <span>GitHub</span>
         </a>
       </div>
@@ -50,394 +37,381 @@
 
   <!-- ─── Hero ─── -->
   <header class="hero" id="hero">
-    <div class="hero-content">
-      <div class="hero-badge">
-        <span class="badge-dot"></span>
-        Zero Ops · Zero Cost
-      </div>
-      <h1 class="hero-title">
-        Automated<br />
-        <span class="gradient-text">Portfolio Reports</span>
-      </h1>
-      <p class="hero-subtitle">
-        A zero-touch monthly reporting pipeline for Zerodha users.<br />
-        Powered by <strong>Gemini AI</strong>, live market data, and <strong>GitHub Actions</strong>.
-      </p>
-      <div class="hero-actions">
-        <a href="https://github.com/akamaurya/portfolio-monitor" target="_blank" rel="noopener" class="btn btn-primary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          View on GitHub
-        </a>
-        <a href="#pipeline" class="btn btn-secondary">See How It Works</a>
-      </div>
+   <div class="hero-grid">
+    <div class="hero-copy">
+    <p class="eyebrow eyebrow-accent">Zerodha · Gemini · GitHub Actions</p>
+    <h1 class="hero-title">
+      A research desk<br />
+      that runs <em>itself</em>.
+    </h1>
+    <p class="hero-subtitle">
+      On the first of every month this pipeline logs into Zerodha, prices your
+      holdings against live market data, reads what the institutions did, and
+      emails you a written research note on your own portfolio. Nothing to
+      open, nothing to run, nothing to pay.
+    </p>
+    <div class="hero-actions">
+      <a href="https://github.com/akamaurya/portfolio-monitor" target="_blank" rel="noopener" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        View the source
+      </a>
+      <a href="sample-report.html" target="_blank" rel="noopener" class="btn btn-secondary">Read a sample note</a>
+    </div>
+    </div>
 
-      <div class="hero-stats">
-        <div class="stat">
-          <span class="stat-value">₹0</span>
-          <span class="stat-label">Monthly Cost</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-value">~5 min</span>
-          <span class="stat-label">Execution Time</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-value">11</span>
-          <span class="stat-label">Report Sections</span>
-        </div>
-        <div class="stat-divider"></div>
-        <div class="stat">
-          <span class="stat-value">0</span>
-          <span class="stat-label">Manual Steps</span>
-        </div>
+    <!-- The run log is the thing you actually watch: seven steps, one command. -->
+    <div class="run-log" aria-label="Example terminal output from a demo run">
+      <div class="run-log-bar"><span class="run-log-cmd">python main.py --demo</span></div>
+      <pre class="run-log-body"><code><span class="t">09:30:01</span> <span class="i">INFO</span>  Step 1/7 — Authenticating with Kite… <span class="d">[DEMO — skipped]</span>
+<span class="t">09:30:01</span> <span class="w">WARN</span>  DEMO MODE — hypothetical portfolio (8 stocks, 2 funds)
+<span class="t">09:30:01</span> <span class="i">INFO</span>  Step 2/7 — Fetching holdings… <span class="d">[DEMO fixture]</span>
+<span class="t">09:30:01</span> <span class="i">INFO</span>  Fetched 8 equity, 2 MF, 0 open positions
+<span class="t">09:30:02</span> <span class="i">INFO</span>  Step 3/7 — Enriching with live prices…
+<span class="t">09:30:09</span> <span class="i">INFO</span>  GOLDBEES → GOLDBEES.NS  ₹132.43
+<span class="t">09:30:14</span> <span class="i">INFO</span>  HDFCBANK → HDFCBANK.NS  ₹727.75
+<span class="t">09:30:21</span> <span class="i">INFO</span>  Step 4/7 — Building portfolio summary…
+<span class="t">09:30:21</span> <span class="i">INFO</span>  invested ₹1,00,237 · current ₹1,11,953 · <span class="g">+11.69%</span>
+<span class="t">09:30:22</span> <span class="i">INFO</span>  Step 5/7 — Gathering market research…
+<span class="t">09:30:48</span> <span class="i">INFO</span>  Research context gathered (4,827 chars)
+<span class="t">09:30:48</span> <span class="i">INFO</span>  Step 6/7 — Generating report via Gemini…
+<span class="t">09:31:07</span> <span class="i">INFO</span>  Tokens — prompt: 4,968, response: 1,516
+<span class="t">09:31:07</span> <span class="i">INFO</span>  Step 7/7 — Sending HTML email…
+<span class="t">09:31:09</span> <span class="i">INFO</span>  <span class="g">Done. Report sent.</span></code></pre>
+    </div>
+   </div>
+
+    <div class="hero-stats">
+      <div class="stat">
+        <span class="stat-value">₹0</span>
+        <span class="stat-label">Cost per month</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">~5 min</span>
+        <span class="stat-label">Run time</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">7</span>
+        <span class="stat-label">Sections per note</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">0</span>
+        <span class="stat-label">Manual steps</span>
       </div>
     </div>
   </header>
 
-  <!-- ─── Features ─── -->
-  <section class="section" id="features">
+  <!-- ─── The note ─── -->
+  <section class="section" id="report">
     <div class="container">
-      <h2 class="section-title">Everything automated,<br /><span class="gradient-text">from login to inbox.</span></h2>
-      <p class="section-subtitle">Set it once. Get research-grade reports on the 1st of every month — no laptop needed.</p>
+      <div class="section-head rule-double">
+        <p class="eyebrow" style="margin-top:26px">The output</p>
+        <h2 class="section-title">What lands in your inbox</h2>
+        <p class="section-subtitle">
+          One email, built as a printed research note: a masthead, a headline
+          figure, ruled tables of every position, and a set of calls you could
+          place as orders tomorrow. It renders the same in Gmail, Outlook and
+          Apple Mail, on a laptop or a phone.
+        </p>
+      </div>
 
-      <div class="features-grid">
-        <div class="feature-card" style="--delay: 0">
-          <div class="feature-icon">🔐</div>
-          <h3>Tokenless Auth</h3>
-          <p>Logs into Kite over plain HTTP with TOTP and reuses the <code>enctoken</code> its own web app uses — no browser, no Kite Connect subscription.</p>
+      <div class="report-shots">
+        <figure class="report-shot">
+          <img src="assets/report-email-top.png" width="662" height="812" loading="lazy"
+               alt="Top of the report email: a Portfolio Desk masthead, the heading Monthly Review, a net portfolio value of ₹1,11,953 up 11.69%, and an allocation bar splitting equity from mutual funds." />
+          <figcaption>Masthead, headline figure and allocation</figcaption>
+        </figure>
+        <figure class="report-shot">
+          <img src="assets/report-email-holdings.png" width="662" height="812" loading="lazy"
+               alt="Holdings section of the report email: a ruled table of eight equity positions with quantity, average cost, market price, value, profit and loss, and a one-word call, followed by a mutual funds table." />
+          <figcaption>Every position, priced and called</figcaption>
+        </figure>
+      </div>
+
+      <div class="report-sections">
+        <div class="report-item">
+          <span class="report-num">01</span>
+          <div>
+            <h4>The month in one line</h4>
+            <p>The single thing that moved the portfolio, and the three figures that matter.</p>
+          </div>
         </div>
-        <div class="feature-card" style="--delay: 1">
-          <div class="feature-icon">📈</div>
-          <h3>Live Market Data</h3>
-          <p>Holdings enriched with real-time prices, P/E ratios, 52-week ranges, and sector data via Yahoo Finance.</p>
+        <div class="report-item">
+          <span class="report-num">02</span>
+          <div>
+            <h4>Holdings</h4>
+            <p>Every equity position and every fund, with a one-word call: add, hold, trim or exit.</p>
+          </div>
         </div>
-        <div class="feature-card" style="--delay: 2">
-          <div class="feature-icon">📰</div>
-          <h3>Grounded in Research</h3>
-          <p>FII/DII flows, brokerage PDFs and macro indicators are pulled live and fed to the model, so the analysis cites current data — not training memory.</p>
+        <div class="report-item">
+          <span class="report-num">03</span>
+          <div>
+            <h4>What moved</h4>
+            <p>Three winners and three laggards, each with the reason — drawn from the research pulled that morning, or marked as unexplained.</p>
+          </div>
         </div>
-        <div class="feature-card" style="--delay: 3">
-          <div class="feature-icon">🤖</div>
-          <h3>Gemini AI Analysis</h3>
-          <p>Research-grade analysis by Google Gemini — macro outlook, sectoral dives, and stock-level verdicts, with a model and API-key fallback chain.</p>
+        <div class="report-item">
+          <span class="report-num">04</span>
+          <div>
+            <h4>Allocation</h4>
+            <p>Sector weights, and a plain reading of where the book is concentrated.</p>
+          </div>
         </div>
-        <div class="feature-card" style="--delay: 4">
-          <div class="feature-icon">📧</div>
-          <h3>Email Delivery</h3>
-          <p>Beautifully formatted HTML report delivered to your inbox via Gmail SMTP. Mobile-friendly design.</p>
+        <div class="report-item">
+          <span class="report-num">05</span>
+          <div>
+            <h4>Market backdrop</h4>
+            <p>India first — FII and DII flows in ₹ crore, the RBI's stance, earnings themes — then the Fed, US yields, Brent and the dollar.</p>
+          </div>
         </div>
-        <div class="feature-card" style="--delay: 5">
-          <div class="feature-icon">⚙️</div>
-          <h3>GitHub Actions</h3>
-          <p>Runs on a monthly cron schedule with a failure-alert email if anything breaks. Zero infrastructure to manage.</p>
+        <div class="report-item">
+          <span class="report-num">06</span>
+          <div>
+            <h4>The calls</h4>
+            <p>Three to five actions, most important first, each with the price that would trigger it. Not sentiments — orders.</p>
+          </div>
         </div>
-        <div class="feature-card" style="--delay: 6">
-          <div class="feature-icon">💰</div>
-          <h3>Zero Cost</h3>
-          <p>Every API used is within free-tier limits. One request per month to Gemini, one email, a few minutes of CI.</p>
+        <div class="report-item">
+          <span class="report-num">07</span>
+          <div>
+            <h4>Watchlist</h4>
+            <p>Two or three names not currently held, with the level worth buying below.</p>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
   <!-- ─── Pipeline ─── -->
-  <section class="section section-alt" id="pipeline">
+  <section class="section" id="pipeline">
     <div class="container">
-      <h2 class="section-title">The Pipeline</h2>
-      <p class="section-subtitle">Six Python modules, orchestrated by GitHub Actions, running on the 1st of every month at 9:30 AM IST.</p>
+      <div class="section-head rule-double">
+        <p class="eyebrow" style="margin-top:26px">How it works</p>
+        <h2 class="section-title">Seven steps, seven modules</h2>
+        <p class="section-subtitle">
+          Orchestrated by GitHub Actions on the 1st of every month at 9:30 AM
+          IST. Every network call is bounded, and a failure emails you the
+          traceback rather than failing silently.
+        </p>
+      </div>
 
       <div class="pipeline">
         <div class="pipeline-step">
-          <div class="pipeline-node">
-            <span class="pipeline-num">1</span>
-          </div>
-          <div class="pipeline-content">
-            <div class="pipeline-file">auth.py</div>
+          <span class="pipeline-num">01</span>
+          <span class="pipeline-file">auth.py</span>
+          <div class="pipeline-body">
             <h3>Authenticate</h3>
-            <p>Posts credentials to Kite's login endpoint, answers the TOTP challenge, and captures the <code>enctoken</code> cookie used for every later call.</p>
+            <p>Posts credentials to Kite's login endpoint, answers the TOTP challenge, and captures the <code>enctoken</code> its own web app uses — no Kite Connect subscription, no browser.</p>
           </div>
         </div>
-
-        <div class="pipeline-connector"></div>
-
         <div class="pipeline-step">
-          <div class="pipeline-node">
-            <span class="pipeline-num">2</span>
-          </div>
-          <div class="pipeline-content">
-            <div class="pipeline-file">portfolio.py</div>
-            <h3>Fetch Holdings</h3>
-            <p>Pulls equity holdings, mutual fund (Coin) holdings, and open positions from the Kite API.</p>
+          <span class="pipeline-num">02</span>
+          <span class="pipeline-file">portfolio.py</span>
+          <div class="pipeline-body">
+            <h3>Fetch holdings</h3>
+            <p>Pulls equity holdings, mutual fund holdings from Coin, and open positions, discarding anything fully sold.</p>
           </div>
         </div>
-
-        <div class="pipeline-connector"></div>
-
         <div class="pipeline-step">
-          <div class="pipeline-node">
-            <span class="pipeline-num">3</span>
-          </div>
-          <div class="pipeline-content">
-            <div class="pipeline-file">prices.py</div>
-            <h3>Enrich Data</h3>
-            <p>Each holding is enriched with live market data from Yahoo Finance — current price, P/E, sector, 52-week range.</p>
+          <span class="pipeline-num">03</span>
+          <span class="pipeline-file">prices.py</span>
+          <div class="pipeline-body">
+            <h3>Price them</h3>
+            <p>Each position is valued against live Yahoo Finance data — price, P/E, sector, 52-week range — falling back to Kite's own last price if a lookup fails.</p>
           </div>
         </div>
-
-        <div class="pipeline-connector"></div>
-
         <div class="pipeline-step">
-          <div class="pipeline-node">
-            <span class="pipeline-num">4</span>
-          </div>
-          <div class="pipeline-content">
-            <div class="pipeline-file">research.py</div>
-            <h3>Gather Research</h3>
-            <p>Pulls FII/DII flow data, downloads brokerage PDFs from ICICI Direct and HDFC Securities, and collects macro indicators as grounding context.</p>
+          <span class="pipeline-num">04</span>
+          <span class="pipeline-file">prices.py</span>
+          <div class="pipeline-body">
+            <h3>Aggregate</h3>
+            <p>Totals, sector weights, and the winners and laggards — computed so a holding can never appear in both lists.</p>
           </div>
         </div>
-
-        <div class="pipeline-connector"></div>
-
         <div class="pipeline-step">
-          <div class="pipeline-node">
-            <span class="pipeline-num">5</span>
-          </div>
-          <div class="pipeline-content">
-            <div class="pipeline-file">analyst.py</div>
-            <h3>Generate Report</h3>
-            <p>Portfolio data plus live research context goes to Gemini, which returns an 11-section research-grade analysis in markdown.</p>
+          <span class="pipeline-num">05</span>
+          <span class="pipeline-file">research.py</span>
+          <div class="pipeline-body">
+            <h3>Gather research</h3>
+            <p>Scrapes FII/DII flow data, downloads brokerage PDFs from ICICI Direct and HDFC Securities, and extracts their text as grounding context.</p>
           </div>
         </div>
-
-        <div class="pipeline-connector"></div>
-
         <div class="pipeline-step">
-          <div class="pipeline-node">
-            <span class="pipeline-num">6</span>
+          <span class="pipeline-num">06</span>
+          <span class="pipeline-file">analyst.py</span>
+          <div class="pipeline-body">
+            <h3>Write the note</h3>
+            <p>Holdings plus that morning's research go to Gemini under a prompt that fixes the sections, the table shapes and the column alignment. Three models and three API keys form the fallback chain.</p>
           </div>
-          <div class="pipeline-content">
-            <div class="pipeline-file">emailer.py</div>
-            <h3>Send Email</h3>
-            <p>The final report is wrapped in a responsive HTML template and delivered to your inbox via Gmail SMTP.</p>
+        </div>
+        <div class="pipeline-step">
+          <span class="pipeline-num">07</span>
+          <span class="pipeline-file">emailer.py</span>
+          <div class="pipeline-body">
+            <h3>Send it</h3>
+            <p>The markdown is rendered into a table-based HTML email — no flexbox, so no client can collapse the layout — and sent over Gmail SMTP.</p>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ─── Report Preview ─── -->
-  <section class="section" id="report">
+  <!-- ─── What makes it work ─── -->
+  <section class="section" id="features">
     <div class="container">
-      <h2 class="section-title">What You Get</h2>
-      <p class="section-subtitle">A comprehensive, AI-generated investment report covering every angle of your portfolio.</p>
+      <div class="section-head rule-double">
+        <p class="eyebrow" style="margin-top:26px">Design decisions</p>
+        <h2 class="section-title">Why it keeps working</h2>
+        <p class="section-subtitle">The parts that took the most thought, and the failure each one prevents.</p>
+      </div>
 
-      <div class="report-grid">
-        <div class="report-item">
-          <span class="report-num">01</span>
-          <h4>Portfolio Snapshot</h4>
-          <p>Total value, invested capital and P&L, split across equity and mutual funds.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <h3>Login without an API subscription</h3>
+          <p>Kite Connect costs ₹2,000 a month and needs an OAuth redirect a cron job cannot complete. This logs in the way the web frontend does and reuses the <code>enctoken</code>, so the whole thing runs headless and free.</p>
         </div>
-        <div class="report-item">
-          <span class="report-num">02</span>
-          <h4>Equity Holdings</h4>
-          <p>Every stock with qty, avg cost, CMP, value, P&L, and a HOLD / ADD / TRIM / WATCH verdict.</p>
+        <div class="feature-card">
+          <h3>Grounded, not remembered</h3>
+          <p>FII/DII flows and brokerage PDFs are fetched at run time and put in the prompt, so the note cites this month's numbers instead of whatever the model absorbed in training.</p>
         </div>
-        <div class="report-item">
-          <span class="report-num">03</span>
-          <h4>Mutual Fund Holdings</h4>
-          <p>Coin holdings with invested versus current value and returns per fund.</p>
+        <div class="feature-card">
+          <h3>Fallback chains everywhere</h3>
+          <p>Kimi first when configured, then three Gemini models across three API keys; a Yahoo lookup that fails falls back to Kite's last price. One rate limit does not cost you the month's report.</p>
         </div>
-        <div class="report-item">
-          <span class="report-num">04</span>
-          <h4>Winners &amp; Losers</h4>
-          <p>Top three performers and bottom three, each with a one-line explanation.</p>
+        <div class="feature-card">
+          <h3>Half-written notes never ship</h3>
+          <p>A response that is blocked, truncated, or missing most of its sections is rejected and the next model is tried. A note cut off mid-table is worse than none at all, because it still looks deliverable.</p>
         </div>
-        <div class="report-item">
-          <span class="report-num">05</span>
-          <h4>Sector Allocation</h4>
-          <p>Sector-by-sector exposure as a share of the portfolio, mutual funds included.</p>
+        <div class="feature-card">
+          <h3>Email built as email</h3>
+          <p>The template is nested tables, not flexbox or grid. Gmail and Outlook strip modern layout CSS, which silently collapses a flex row into a stack — the tables render identically everywhere.</p>
         </div>
-        <div class="report-item">
-          <span class="report-num">06</span>
-          <h4>FII/DII Flows</h4>
-          <p>Foreign and domestic institutional flows in ₹ crores, and what they mean for your book.</p>
+        <div class="feature-card">
+          <h3>IST, not UTC</h3>
+          <p>CI runners are UTC. A report generated just after midnight IST on the 1st would carry the previous month's name, so every timestamp goes through one shared clock.</p>
         </div>
-        <div class="report-item">
-          <span class="report-num">07</span>
-          <h4>Market Context</h4>
-          <p>India macro (RBI, inflation, policy) and global drivers (Fed, DXY, Brent, geopolitics).</p>
+        <div class="feature-card">
+          <h3>Failures announce themselves</h3>
+          <p>Any uncaught exception emails you the traceback before exiting non-zero. A silent monthly job that quietly stopped six months ago is worse than no job.</p>
         </div>
-        <div class="report-item">
-          <span class="report-num">08</span>
-          <h4>Research Highlights</h4>
-          <p>Key takeaways from the brokerage reports pulled in this month, cited by source.</p>
-        </div>
-        <div class="report-item">
-          <span class="report-num">09</span>
-          <h4>Key Holdings Review</h4>
-          <p>Deep dive on every position above 5% of the portfolio, with a valuation call.</p>
-        </div>
-        <div class="report-item">
-          <span class="report-num">10</span>
-          <h4>Action Items</h4>
-          <p>Three to five specific moves for the month, each with its rationale.</p>
-        </div>
-        <div class="report-item">
-          <span class="report-num">11</span>
-          <h4>Watchlist</h4>
-          <p>Two or three stocks and funds worth tracking, with target entry prices.</p>
+        <div class="feature-card">
+          <h3>A demo mode that stays honest</h3>
+          <p><code>--demo</code> swaps in a hypothetical portfolio and logs the substitution loudly. Everything downstream — pricing, research, Gemini, delivery — still runs for real.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ─── Tech Stack ─── -->
-  <section class="section section-alt" id="stack">
+  <!-- ─── Tech ─── -->
+  <section class="section" id="stack">
     <div class="container">
-      <h2 class="section-title">Built With</h2>
+      <div class="section-head rule-double">
+        <p class="eyebrow" style="margin-top:26px">Built with</p>
+        <h2 class="section-title">The stack</h2>
+      </div>
       <div class="tech-grid">
-        <div class="tech-item">
-          <span class="tech-name">Python 3</span>
-          <span class="tech-role">Core Runtime</span>
-        </div>
-        <div class="tech-item">
-          <span class="tech-name">requests + pyotp</span>
-          <span class="tech-role">Kite Auth &amp; TOTP</span>
-        </div>
-        <div class="tech-item">
-          <span class="tech-name">Kite Web API</span>
-          <span class="tech-role">Holdings &amp; Positions</span>
-        </div>
-        <div class="tech-item">
-          <span class="tech-name">pypdf</span>
-          <span class="tech-role">Brokerage Reports</span>
-        </div>
-        <div class="tech-item">
-          <span class="tech-name">yfinance</span>
-          <span class="tech-role">Market Data</span>
-        </div>
-        <div class="tech-item">
-          <span class="tech-name">Gemini API</span>
-          <span class="tech-role">AI Analysis</span>
-        </div>
-        <div class="tech-item">
-          <span class="tech-name">GitHub Actions</span>
-          <span class="tech-role">CI / Scheduler</span>
-        </div>
+        <div class="tech-item"><span class="tech-name">Python 3.11+</span><span class="tech-role">Core runtime</span></div>
+        <div class="tech-item"><span class="tech-name">requests + pyotp</span><span class="tech-role">Kite auth &amp; TOTP</span></div>
+        <div class="tech-item"><span class="tech-name">Kite Web API</span><span class="tech-role">Holdings &amp; positions</span></div>
+        <div class="tech-item"><span class="tech-name">yfinance</span><span class="tech-role">Market data</span></div>
+        <div class="tech-item"><span class="tech-name">pypdf</span><span class="tech-role">Brokerage reports</span></div>
+        <div class="tech-item"><span class="tech-name">Gemini API</span><span class="tech-role">Analysis</span></div>
+        <div class="tech-item"><span class="tech-name">Kimi / Moonshot</span><span class="tech-role">Optional first choice</span></div>
+        <div class="tech-item"><span class="tech-name">markdown</span><span class="tech-role">Note rendering</span></div>
+        <div class="tech-item"><span class="tech-name">GitHub Actions</span><span class="tech-role">Scheduler &amp; CI</span></div>
       </div>
     </div>
   </section>
 
-  <!-- ─── Quick Setup ─── -->
+  <!-- ─── Setup ─── -->
   <section class="section" id="setup">
     <div class="container">
-      <h2 class="section-title">Get Started in<br /><span class="gradient-text">5 minutes.</span></h2>
-      <p class="section-subtitle">Clone, configure your secrets, and let GitHub Actions handle the rest.</p>
+      <div class="section-head rule-double">
+        <p class="eyebrow" style="margin-top:26px">Getting started</p>
+        <h2 class="section-title">Running in five minutes</h2>
+        <p class="section-subtitle">Clone it, add your secrets, and leave it alone.</p>
+      </div>
 
       <div class="setup-steps">
         <div class="setup-step">
-          <div class="setup-num">1</div>
+          <span class="setup-num">01</span>
           <div class="setup-body">
-            <h4>Clone & Configure</h4>
+            <h4>Clone and configure</h4>
             <pre><code>git clone https://github.com/akamaurya/portfolio-monitor.git
 cd portfolio-monitor
-cp .env.example .env
-# Add your Kite, Gemini, and Gmail credentials</code></pre>
+pip install -r requirements.txt
+cp .env.example .env</code></pre>
           </div>
         </div>
-
         <div class="setup-step">
-          <div class="setup-num">2</div>
+          <span class="setup-num">02</span>
           <div class="setup-body">
-            <h4>Add GitHub Secrets</h4>
-            <p>Go to <strong>Settings → Secrets and variables → Actions</strong> and add <code>KITE_USER_ID</code>, <code>KITE_PASSWORD</code>, <code>KITE_TOTP_SECRET</code>, <code>GEMINI_API_KEY1</code>, <code>GMAIL_ADDRESS</code>, <code>GMAIL_APP_PASSWORD</code> and <code>RECIPIENT_EMAIL</code>.</p>
+            <h4>Try it on a hypothetical portfolio first</h4>
+            <pre><code>python main.py --demo --preview</code></pre>
+            <p style="margin-top:10px">Runs the whole pipeline against invented holdings and writes the email to <code>out/preview.html</code> instead of sending it. Drop <code>--preview</code> to have it delivered.</p>
           </div>
         </div>
-
         <div class="setup-step">
-          <div class="setup-num">3</div>
+          <span class="setup-num">03</span>
           <div class="setup-body">
-            <h4>Sit Back</h4>
-            <p>The pipeline runs automatically on the <strong>1st of every month</strong>. You can also trigger it manually from the Actions tab.</p>
+            <h4>Add your GitHub secrets</h4>
+            <p>Under <strong>Settings → Secrets and variables → Actions</strong>, add <code>KITE_USER_ID</code>, <code>KITE_PASSWORD</code>, <code>KITE_TOTP_SECRET</code>, <code>GEMINI_API_KEY1</code>, <code>GMAIL_ADDRESS</code>, <code>GMAIL_APP_PASSWORD</code> and <code>RECIPIENT_EMAIL</code>.</p>
+          </div>
+        </div>
+        <div class="setup-step">
+          <span class="setup-num">04</span>
+          <div class="setup-body">
+            <h4>Leave it alone</h4>
+            <p>The workflow runs on the <strong>1st of every month</strong>. You can trigger it by hand from the Actions tab, and you will hear from it either way — the report, or the traceback.</p>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ─── Cost Table ─── -->
-  <section class="section section-alt" id="cost">
+  <!-- ─── Cost ─── -->
+  <section class="section" id="cost">
     <div class="container">
-      <h2 class="section-title">Cost Breakdown</h2>
-      <p class="section-subtitle">Every service used stays within free-tier limits.</p>
+      <div class="section-head rule-double">
+        <p class="eyebrow" style="margin-top:26px">Running cost</p>
+        <h2 class="section-title">Every service stays inside its free tier</h2>
+      </div>
 
       <div class="cost-table-wrapper">
         <table class="cost-table">
           <thead>
-            <tr>
-              <th>Service</th>
-              <th>Free Tier</th>
-              <th>This Project Uses</th>
-            </tr>
+            <tr><th scope="col">Service</th><th scope="col">Free tier</th><th scope="col">This uses</th></tr>
           </thead>
           <tbody>
-            <tr>
-              <td>Zerodha Kite</td>
-              <td>Free — no Kite Connect app needed</td>
-              <td>1 login / month</td>
-            </tr>
-            <tr>
-              <td>Yahoo Finance</td>
-              <td>Unlimited</td>
-              <td>~20-50 lookups</td>
-            </tr>
-            <tr>
-              <td>Google Gemini API</td>
-              <td>50 req/day (Pro)</td>
-              <td>1 request / month</td>
-            </tr>
-            <tr>
-              <td>Gmail SMTP</td>
-              <td>500 emails/day</td>
-              <td>1 email / month</td>
-            </tr>
-            <tr>
-              <td>GitHub Actions</td>
-              <td>2000 min/month</td>
-              <td>~5 min / month</td>
-            </tr>
+            <tr><td>Zerodha Kite</td><td>Free — no Kite Connect app needed</td><td>1 login / month</td></tr>
+            <tr><td>Yahoo Finance</td><td>Unmetered</td><td>~20–50 lookups</td></tr>
+            <tr><td>Google Gemini API</td><td>50 requests / day</td><td>1 request / month</td></tr>
+            <tr><td>Gmail SMTP</td><td>500 emails / day</td><td>1 email / month</td></tr>
+            <tr><td>GitHub Actions</td><td>2,000 minutes / month</td><td>~5 minutes / month</td></tr>
           </tbody>
           <tfoot>
-            <tr>
-              <td colspan="2"><strong>Total</strong></td>
-              <td><strong class="gradient-text">₹0 / month</strong></td>
-            </tr>
+            <tr><td colspan="2">Total</td><td><span class="cost-total">₹0</span></td></tr>
           </tfoot>
         </table>
       </div>
     </div>
   </section>
 
-  <!-- ─── CTA Footer ─── -->
+  <!-- ─── Footer ─── -->
   <footer class="footer">
-    <div class="container">
-      <div class="footer-cta">
-        <h2>Ready to automate your portfolio?</h2>
-        <p>Star the repo, fork it, and get your first report in minutes.</p>
-        <a href="https://github.com/akamaurya/portfolio-monitor" target="_blank" rel="noopener" class="btn btn-primary btn-lg">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          Get Started on GitHub
-        </a>
-      </div>
-      <div class="footer-bottom">
-        <p>Built by <a href="https://github.com/akamaurya" target="_blank" rel="noopener">@akamaurya</a></p>
-        <p class="footer-disclaimer">Not affiliated with Zerodha, Google, or Yahoo.</p>
-      </div>
+    <div class="footer-cta rule-double">
+      <h2 style="margin-top:44px">Point it at your own portfolio</h2>
+      <p>Fork it, add three secrets, and read the first note next month.</p>
+      <a href="https://github.com/akamaurya/portfolio-monitor" target="_blank" rel="noopener" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        Get it on GitHub
+      </a>
+    </div>
+    <div class="footer-bottom">
+      <p>Built by <a href="https://github.com/akamaurya" target="_blank" rel="noopener">@akamaurya</a></p>
+      <p class="footer-disclaimer">Not affiliated with Zerodha, Google or Yahoo. Nothing here is investment advice.</p>
     </div>
   </footer>
 
-  <script src="script.js"></script>
+</div>
 </body>
 </html>

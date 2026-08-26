@@ -8,7 +8,14 @@ An unattended monthly research report on your own Zerodha portfolio, delivered t
 
 On the 1st of every month a GitHub Actions cron logs into Kite, pulls your equity and mutual fund holdings, enriches them with live market data, gathers current market research, has Gemini write an analyst-style review grounded in that research, and emails it as a formatted HTML report. No laptop, no manual steps, no servers, ₹0/month.
 
-> 🌐 **[Project showcase →](https://akamaurya.github.io/portfolio-monitor/)**
+> 🌐 **[Project showcase →](https://akamaurya.github.io/portfolio-monitor/)** · **[Sample report →](https://akamaurya.github.io/portfolio-monitor/sample-report.html)**
+
+<p align="center">
+  <img src="docs/assets/report-email-top.png" width="46%" alt="Top of the report email: a Portfolio Desk masthead, a net portfolio value of ₹1,11,953 up 11.69%, and an allocation bar splitting equity from mutual funds." />
+  <img src="docs/assets/report-email-holdings.png" width="46%" alt="Holdings section: a ruled table of eight equity positions with quantity, average cost, market price, value, P&L and a one-word call." />
+</p>
+
+<p align="center"><sub>The monthly note, rendered from a hypothetical demo portfolio.</sub></p>
 
 ---
 
@@ -21,8 +28,8 @@ GitHub Actions (cron: 1st of month, 09:30 IST)
   ├─ 2. portfolio.py  Equity holdings, mutual fund (Coin) holdings, open positions
   ├─ 3. prices.py     yfinance enrichment (price, sector, P/E, 52w range) + aggregation
   ├─ 4. research.py   FII/DII flows, brokerage report PDFs, macro indicators
-  ├─ 5. analyst.py    Gemini → 11-section markdown report
-  └─ 6. emailer.py    Styled HTML email via Gmail SMTP (+ failure alerts)
+  ├─ 5. analyst.py    Gemini → 7-section markdown note
+  └─ 6. emailer.py    Table-based HTML email via Gmail SMTP (+ failure alerts)
 ```
 
 `main.py` runs these as a 7-step pipeline (auth → fetch → enrich → summarise → research → generate → send) and, if any step raises, emails the traceback before exiting non-zero.
@@ -42,10 +49,12 @@ The result is headless, dependency-light (`requests` + `pyotp`, no browser), and
 A few decisions worth calling out, since they're what make an unattended monthly job trustworthy:
 
 - **Degrade, don't crash.** A missing Yahoo ticker, an empty mutual fund account or an unreachable brokerage PDF each log a warning and continue. Only auth, Gemini and SMTP failures are fatal.
-- **Fallback chain for the LLM.** Three models × up to three API keys, and a response that comes back empty or blocked is treated as a failure so the next combination is tried rather than an empty report being sent.
+- **Fallback chain for the LLM.** Kimi first when `KIMI_API_KEY` is set, then three Gemini models × up to three keys. A response that comes back empty, blocked, truncated, or missing most of its sections is treated as a failure so the next combination is tried — a note cut off mid-table is worse than none at all, because it still looks deliverable.
 - **Fail loudly when it does fail.** Any unhandled exception triggers a failure-alert email with the traceback, so a broken run can't quietly go unnoticed for a month.
 - **Everything is bounded.** Every HTTP and SMTP call has an explicit timeout, and the workflow has a 15-minute cap — a hung request can't burn CI minutes.
 - **IST everywhere.** Runners are UTC, but this is an India-market report; all dates and timestamps go through `src/clock.py` so month labels and the "generated at" stamp are correct.
+- **Built as email, not as a web page.** The template is nested tables. Gmail and Outlook strip flexbox and grid, which silently collapses a flex row into a stack — tables render identically in every client, on desktop and phone.
+- **A demo mode that can't be mistaken for real.** `--demo` swaps in a hypothetical portfolio and logs the substitution as a warning; everything downstream still runs for real. See [Demo mode](#demo-mode).
 - **Pure logic is tested.** Ticker mapping, portfolio aggregation, currency formatting and holdings cleaning are covered by offline unit tests that run on every push.
 
 ---
@@ -65,6 +74,14 @@ A few decisions worth calling out, since they're what make an unattended monthly
 2. Create up to three keys (from different projects) for redundancy — only the first is required
 3. The free tier is far more than enough: this runs one request per month
 
+### 2b. Optional: a Kimi (Moonshot) key
+
+Set `KIMI_API_KEY` and the pipeline tries Kimi (`kimi-k3`, then `kimi-k2.6`)
+before touching Gemini, falling back automatically if the key is rate-limited,
+out of balance or the model is unavailable. The endpoint is OpenAI-compatible,
+so this needs no extra dependency — get a key at
+[platform.moonshot.ai](https://platform.moonshot.ai).
+
 ### 3. Create a Gmail app password
 
 1. **Google Account → Security → 2-Step Verification → App passwords**
@@ -80,6 +97,7 @@ Push the repo, then go to **Settings → Secrets and variables → Actions** and
 | `KITE_PASSWORD`      | ✅        | Zerodha login password                             |
 | `KITE_TOTP_SECRET`   | ✅        | Base32 TOTP secret (not the 6-digit code)          |
 | `GEMINI_API_KEY1`    | ✅        | Gemini API key from Google AI Studio               |
+| `KIMI_API_KEY`       | —        | Moonshot/Kimi key; tried before Gemini when set    |
 | `GEMINI_API_KEY2`    | —        | Fallback Gemini key                                |
 | `GEMINI_API_KEY3`    | —        | Second fallback Gemini key                         |
 | `GMAIL_ADDRESS`      | ✅        | Gmail address to send from                         |
@@ -105,6 +123,28 @@ cp .env.example .env   # fill in your credentials
 python main.py
 ```
 
+### Demo mode
+
+To show the pipeline without exposing real holdings — a screen recording, a
+walkthrough, or just a first run before your credentials are set up:
+
+```bash
+python main.py --demo             # hypothetical portfolio, real everything else
+python main.py --demo --preview   # …and write the email to out/preview.html instead of sending
+```
+
+`--demo` substitutes `src/demo.py` for the Kite login and the holdings fetch,
+and nothing else. Live prices, the research scrape, the Gemini call and the
+email delivery all still happen, so what you are watching is the real pipeline
+on invented holdings — eight liquid NSE names and two funds, with average
+costs spread either side of their usual bands so the note has genuine winners
+and losers to discuss. The run logs `DEMO MODE` at WARNING level so a demo can
+never be mistaken for a live report.
+
+`--preview` writes the rendered email to `out/preview.html` and sends nothing.
+It works with or without `--demo`, and is the fastest way to iterate on the
+template.
+
 `.env` is git-ignored and secrets are never logged — the Gemini key is truncated to four characters in log output, and nothing else prints credentials.
 
 ### Tests
@@ -120,21 +160,34 @@ The suite is fully offline — no Kite, Yahoo, Gemini or SMTP calls — and runs
 
 ## What the report contains
 
-Gemini returns markdown with a fixed 11-section structure, heavy on tables and status indicators so it's scannable on a phone:
+Gemini returns markdown with a fixed seven-section structure — tables over
+prose, no emoji, and every numeric column right-aligned so the figures line up
+down the page:
 
 | # | Section | Contents |
 |---|---------|----------|
-| 1 | 📊 Portfolio Snapshot | Value, invested, P&L, equity vs. mutual fund split |
-| 2 | 📈 Equity Holdings | Every stock: qty, avg cost, CMP, value, P&L, HOLD/ADD/TRIM/WATCH verdict |
-| 3 | 🏦 Mutual Fund Holdings | Each fund: invested, current, P&L |
-| 4 | 🥇 Winners & Losers | Top and bottom three, with reasons |
-| 5 | 🏗️ Sector Allocation | Exposure by sector, mutual funds included |
-| 6 | 💰 FII/DII Flows | Institutional flows in ₹ crores and portfolio implications |
-| 7 | 🌍 Market Context | India macro (RBI, inflation, policy) and global (Fed, DXY, Brent) |
-| 8 | 📑 Research Highlights | Takeaways from this month's brokerage reports, cited |
-| 9 | 🔍 Key Holdings Review | Deep dive on positions above 5% of the portfolio |
-| 10 | ⚠️ Action Items | 3–5 concrete moves with rationale |
-| 11 | 🎯 Watchlist | 2–3 ideas with target entry prices |
+| 1 | The month in one line | The single thing that moved the portfolio, and the three figures that matter |
+| 2 | Holdings | Every equity position and every fund, each with a one-word call: ADD / HOLD / TRIM / EXIT |
+| 3 | What moved | Three winners and three laggards, each with its reason — or marked as unexplained |
+| 4 | Allocation | Sector weights, and a plain reading of where the book is concentrated |
+| 5 | Market backdrop | India first (FII/DII flows, RBI, earnings), then the Fed, US yields, Brent and the dollar |
+| 6 | The calls | 3–5 actions, most important first, each with the price that would trigger it |
+| 7 | Watchlist | 2–3 names not currently held, with the level worth buying below |
+
+The prompt in `src/analyst.py` fixes the section list, the table shapes and the
+column alignment, and bans invented figures: anything not present in the
+supplied data is to be omitted rather than estimated. The ▲/▼ direction markers
+and the one-word call column are what `emailer._style_markers` keys off to
+colour the numbers and render the call chips.
+
+### Report design
+
+The email is a research note rather than a dashboard: a masthead with a
+stacked thick/thin rule, one dominant figure, an equity-versus-funds allocation
+bar, and ruled tables with no zebra striping. Type does three jobs — a
+humanist serif for voice, the system sans for utility text, and a monospace
+reserved for figures. `docs/style.css` shares the same palette and type stacks,
+so the showcase site and the email it advertises look like one system.
 
 ### Research grounding
 
@@ -155,6 +208,7 @@ Each source is best-effort: whatever is reachable that month goes into the promp
 | Zerodha Kite       | Free — no Kite Connect app needed  | 1 login/month         |
 | Yahoo Finance      | Unlimited                          | ~20–50 lookups/month  |
 | Google Gemini API  | Generous free tier                 | 1 request/month       |
+| Kimi / Moonshot    | Paid, optional                     | 1 request/month       |
 | Gmail SMTP         | 500 emails/day                     | 1–2 emails/month      |
 | GitHub Actions     | 2,000 minutes/month                | ~5 minutes/month      |
 
@@ -174,6 +228,10 @@ Each source is best-effort: whatever is reachable that month goes into the promp
 
 **Gemini errors.** Up to nine model/key combinations are attempted — the logs name the failure for each. Preview model IDs change; update `models_to_try` in `src/analyst.py` if they're retired.
 
+**Kimi errors.** The logs print Moonshot's own message rather than the bare HTTP status, so `exceeded_current_quota_error: … suspended due to insufficient balance` means the account needs topping up, not that the key is wrong. Kimi failures are never fatal — the run falls through to Gemini.
+
+**The report arrives half-written.** It shouldn't: a truncated response is rejected and the next model is tried. If it happens anyway, the note ran long enough to exhaust `max_output_tokens` in `src/analyst.py` — raise it. Gemini 3 counts thinking tokens against that same budget, which is why it is set well above the length of the note itself.
+
 ---
 
 ## Project structure
@@ -183,14 +241,17 @@ portfolio-monitor/
 ├── .github/workflows/
 │   ├── monthly_report.yml   ← cron + manual trigger for the report
 │   └── tests.yml            ← pytest on every push
-├── docs/                    ← GitHub Pages showcase (static HTML/CSS/JS)
+├── docs/                    ← GitHub Pages showcase (static HTML/CSS)
+│   ├── assets/              ← Report screenshots used here and on the site
+│   └── sample-report.html   ← A rendered demo note, published as-is
 ├── src/
 │   ├── auth.py              ← HTTP login + TOTP → enctoken client
 │   ├── portfolio.py         ← Holdings, MF holdings, positions
 │   ├── prices.py            ← yfinance enrichment + portfolio aggregation
 │   ├── research.py          ← FII/DII flows, brokerage PDFs, indicators
 │   ├── analyst.py           ← Gemini report generation with fallbacks
-│   ├── emailer.py           ← HTML email + failure alerts
+│   ├── emailer.py           ← Table-based HTML email + failure alerts
+│   ├── demo.py              ← Hypothetical portfolio for --demo runs
 │   └── clock.py             ← IST-aware clock for a UTC runner
 ├── tests/                   ← Offline unit tests
 ├── main.py                  ← Pipeline entry point

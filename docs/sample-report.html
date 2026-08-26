@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Portfolio Review — August 2026 · ₹1,11,939 · +11.67%</title>
+<style>
+  :root { color-scheme: light only; supported-color-schemes: light; }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background: #EDEEF0;
+    color: #16191E;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+  }
+  table { border-collapse: collapse; }
+  .canvas { background: #EDEEF0; padding: 32px 16px; }
+  .sheet { background: #FFFFFF; width: 640px; max-width: 100%; }
+
+  /* ── Masthead ─────────────────────────────────────── */
+  .masthead { padding: 28px 40px 10px; }
+  .desk {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.4px;
+    text-transform: uppercase; color: #17457A;
+  }
+  .dateline {
+    font-family: 'SF Mono', 'IBM Plex Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+    font-size: 11px; letter-spacing: 0.4px; color: #858D99;
+  }
+  /* The stacked thick/thin rule is the masthead device of a printed note. */
+  .rule-double { padding: 0 40px; }
+  .rule-double div { border-top: 2px solid #16191E; }
+  .rule-double div + div { border-top: 1px solid #E2E5E9; margin-top: 2px; }
+
+  .title-block { padding: 22px 40px 0; }
+  .doc-title {
+    margin: 0;
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-size: 30px; font-weight: 400; letter-spacing: -0.3px;
+    line-height: 1.15; color: #16191E;
+  }
+  .doc-sub {
+    margin-top: 5px;
+    font-size: 13px; color: #858D99;
+  }
+
+  /* ── Hero figure ──────────────────────────────────── */
+  .eyebrow {
+    font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: #858D99;
+  }
+  .hero { padding: 26px 40px 0; }
+  .hero-figure {
+    margin-top: 4px;
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-size: 46px; font-weight: 400; letter-spacing: -0.5px;
+    line-height: 1.1; color: #16191E;
+  }
+  .hero-delta {
+    margin-top: 8px;
+    font-size: 13px; color: #4A525E;
+  }
+  .hero-delta .figure { font-family: 'SF Mono', 'IBM Plex Mono', Menlo, Consolas, 'Liberation Mono', monospace; font-size: 12px; }
+  .sep { color: #858D99; padding: 0 7px; }
+
+  /* ── Allocation ───────────────────────────────────── */
+  .alloc { padding: 26px 40px 26px; }
+  .bar { margin-top: 9px; }
+  .bar td { height: 8px; line-height: 8px; font-size: 0; }
+  .alloc-row td {
+    padding: 9px 0 0;
+    font-size: 13px; color: #4A525E;
+    border-bottom: none;
+  }
+  .swatch {
+    display: inline-block; width: 8px; height: 8px;
+    margin-right: 8px; vertical-align: middle;
+  }
+  .alloc-name { color: #16191E; }
+  .alloc-figure {
+    font-family: 'SF Mono', 'IBM Plex Mono', Menlo, Consolas, 'Liberation Mono', monospace; font-size: 12px; color: #16191E;
+    white-space: nowrap;
+  }
+
+  /* ── Report content ───────────────────────────────── */
+  .content { padding: 26px 40px 8px; color: #4A525E; }
+  .content h1 {
+    margin: 34px 0 12px;
+    padding-top: 14px;
+    border-top: 1px solid #E2E5E9;
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    font-size: 20px; font-weight: 400; letter-spacing: -0.2px;
+    color: #16191E;
+  }
+  .content h1:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .content h2 {
+    margin: 22px 0 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1.3px;
+    text-transform: uppercase; color: #858D99;
+  }
+  .content h3 {
+    margin: 16px 0 6px;
+    font-size: 14px; font-weight: 600; color: #16191E;
+  }
+  .content p { margin: 9px 0; }
+  .content strong { color: #16191E; font-weight: 600; }
+  .content em { color: #4A525E; }
+  .content a { color: #17457A; text-decoration: underline; }
+  .content ul, .content ol { margin: 9px 0; padding-left: 20px; }
+  .content li { margin: 5px 0; }
+  .content blockquote {
+    margin: 14px 0; padding: 2px 0 2px 16px;
+    border-left: 2px solid #9FB6CE;
+    color: #4A525E;
+  }
+
+  /* ── Data tables ──────────────────────────────────── */
+  /* Rules, not fills: research tables are ruled, and a striped background is
+     one of the first things Outlook renders inconsistently. */
+  .content table {
+    width: 100%; margin: 14px 0; font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  .content th {
+    padding: 0 10px 7px;
+    border-bottom: 1px solid #16191E;
+    font-size: 10px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; color: #858D99;
+    text-align: left;
+  }
+  .content td {
+    padding: 9px 10px;
+    border-bottom: 1px solid #E2E5E9;
+    color: #4A525E;
+  }
+  .content th:first-child, .content td:first-child { padding-left: 0; }
+  .content th:last-child, .content td:last-child { padding-right: 0; }
+  .content td strong { color: #16191E; }
+
+  /* nowrap keeps the marker with its figure — a long fund name otherwise
+     pushes the number onto a line of its own, orphaning the ▲. */
+  .up { color: #0B6E4F; font-weight: 600; white-space: nowrap; }
+  .down { color: #A32C22; font-weight: 600; white-space: nowrap; }
+
+  /* Verdict chips, applied to whole-cell matches only. */
+  .verdict {
+    display: inline-block; padding: 3px 8px;
+    min-width: 42px; text-align: center;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+    text-transform: uppercase;
+    border: 1px solid #E2E5E9; color: #4A525E;
+  }
+  .verdict-add { border-color: #0B6E4F; color: #0B6E4F; background: #E8F2ED; }
+  .verdict-trim { border-color: #A32C22; color: #A32C22; background: #FBEBE9; }
+  .verdict-hold { border-color: #E2E5E9; color: #4A525E; }
+
+  code, pre {
+    font-family: 'SF Mono', 'IBM Plex Mono', Menlo, Consolas, 'Liberation Mono', monospace; font-size: 12px;
+    background: #EDEEF0; color: #16191E;
+    padding: 1px 5px;
+  }
+  pre { padding: 12px; overflow-x: auto; }
+  pre code { padding: 0; background: none; }
+
+  /* ── Footer ───────────────────────────────────────── */
+  .footer { padding: 26px 40px 34px; }
+  .footer .rule { border-top: 1px solid #E2E5E9; margin-bottom: 16px; }
+  .footer p {
+    margin: 0 0 6px;
+    font-size: 11px; line-height: 1.5; color: #858D99;
+  }
+  .footer .disclaimer { font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif; font-style: italic; font-size: 12px; }
+
+  /* ── Small screens ────────────────────────────────── */
+  @media only screen and (max-width: 600px) {
+    .canvas { padding: 0; }
+    .masthead, .title-block, .hero, .alloc, .content, .footer, .rule-double {
+      padding-left: 20px; padding-right: 20px;
+    }
+    .doc-title { font-size: 25px; }
+    .hero-figure { font-size: 36px; }
+    /* The holdings table is seven columns wide; at 11px with tight gutters it
+       fits a 390pt phone instead of forcing the client to scale the message. */
+    .content table { font-size: 11px; }
+    .content th, .content td { padding-left: 3px; padding-right: 3px; }
+    .verdict { min-width: 0; padding: 2px 5px; font-size: 9px; }
+  }
+</style>
+</head>
+<body>
+<table role="presentation" class="canvas" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td align="center">
+
+<table role="presentation" class="sheet" width="640" cellpadding="0" cellspacing="0" border="0">
+
+  <tr><td class="masthead">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+      <td class="desk">Portfolio Desk</td>
+      <td class="dateline" align="right">26 AUG 2026</td>
+    </tr></table>
+  </td></tr>
+
+  <tr><td class="rule-double"><div></div><div></div></td></tr>
+
+  <tr><td class="title-block">
+    <h1 class="doc-title">Monthly Review</h1>
+    <div class="doc-sub">August 2026 &middot; Equity and mutual funds</div>
+  </td></tr>
+
+  <tr><td class="hero">
+    <div class="eyebrow">Net portfolio value</div>
+    <div class="hero-figure">&#8377;1,11,939</div>
+    <div class="hero-delta">
+      <span class="up">▲ 11.67%</span>
+      <span class="sep">|</span>
+      <span class="figure">+&#8377;11,703</span> on <span class="figure">&#8377;1,00,237</span> invested
+    </div>
+  </td></tr>
+
+  <tr><td class="alloc">
+    <div class="eyebrow">Allocation</div>
+    <table role="presentation" class="bar" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="76.3357%" style="width:76.3357%;background:#17457A;">&nbsp;</td><td width="23.6643%" style="width:23.6643%;background:#9FB6CE;">&nbsp;</td></tr></table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr class="alloc-row"><td><span class="swatch" style="background:#17457A;"></span><span class="alloc-name">Equity</span> 76.3%</td><td align="right" class="alloc-figure">&#8377;85,450&nbsp;&nbsp;<span class="up">▲ 8.38%</span></td></tr><tr class="alloc-row"><td><span class="swatch" style="background:#9FB6CE;"></span><span class="alloc-name">Mutual funds</span> 23.7%</td><td align="right" class="alloc-figure">&#8377;26,490&nbsp;&nbsp;<span class="up">▲ 23.82%</span></td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td class="rule-double"><div></div><div></div></td></tr>
+
+  <tr><td class="content">
+<h1>The month in one line</h1>
+<p>Gold and engineering holdings drove the portfolio to a total unrealized gain of 11.67% despite significant weakness in the technology and tobacco sectors.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Metric</th>
+<th style="text-align: right;">Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Total Current Value</td>
+<td style="text-align: right;">₹1,11,939.12</td>
+</tr>
+<tr>
+<td style="text-align: left;">Total Unrealized P&amp;L %</td>
+<td style="text-align: right;"><span class="up">▲ 11.67%</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">Top Performer</td>
+<td style="text-align: right;">GOLDBEES</td>
+</tr>
+</tbody>
+</table>
+<h1>Holdings</h1>
+<h2>Equity</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Stock</th>
+<th style="text-align: right;">Qty</th>
+<th style="text-align: right;">Avg cost</th>
+<th style="text-align: right;">CMP</th>
+<th style="text-align: right;">Value</th>
+<th style="text-align: right;">P&amp;L %</th>
+<th style="text-align: left;">Call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">NIFTYBEES</td>
+<td style="text-align: right;">48</td>
+<td style="text-align: right;">₹243.00</td>
+<td style="text-align: right;">₹276.89</td>
+<td style="text-align: right;">₹13,290.72</td>
+<td style="text-align: right;"><span class="up">▲ 13.95%</span></td>
+<td style="text-align: left;"><span class="verdict verdict-hold">HOLD</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">GOLDBEES</td>
+<td style="text-align: right;">95</td>
+<td style="text-align: right;">₹100.40</td>
+<td style="text-align: right;">₹132.35</td>
+<td style="text-align: right;">₹12,573.25</td>
+<td style="text-align: right;"><span class="up">▲ 31.82%</span></td>
+<td style="text-align: left;"><span class="verdict verdict-hold">HOLD</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">LT</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">₹3,277.00</td>
+<td style="text-align: right;">₹4,051.90</td>
+<td style="text-align: right;">₹12,155.70</td>
+<td style="text-align: right;"><span class="up">▲ 23.65%</span></td>
+<td style="text-align: left;"><span class="verdict verdict-hold">HOLD</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">TITAN</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">₹4,320.00</td>
+<td style="text-align: right;">₹5,111.00</td>
+<td style="text-align: right;">₹10,222.00</td>
+<td style="text-align: right;"><span class="up">▲ 18.31%</span></td>
+<td style="text-align: left;"><span class="verdict verdict-trim">TRIM</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">SUNPHARMA</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">₹2,035.00</td>
+<td style="text-align: right;">₹1,910.00</td>
+<td style="text-align: right;">₹9,550.00</td>
+<td style="text-align: right;"><span class="down">▼ 6.14%</span></td>
+<td style="text-align: left;"><span class="verdict verdict-hold">HOLD</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">HDFCBANK</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">₹668.00</td>
+<td style="text-align: right;">₹727.35</td>
+<td style="text-align: right;">₹9,455.55</td>
+<td style="text-align: right;"><span class="up">▲ 8.88%</span></td>
+<td style="text-align: left;"><span class="verdict verdict-add">ADD</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">ITC</td>
+<td style="text-align: right;">34</td>
+<td style="text-align: right;">₹297.40</td>
+<td style="text-align: right;">₹271.15</td>
+<td style="text-align: right;">₹9,219.10</td>
+<td style="text-align: right;"><span class="down">▼ 8.83%</span></td>
+<td style="text-align: left;"><span class="verdict verdict-hold">HOLD</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">INFY</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">₹1,275.00</td>
+<td style="text-align: right;">₹1,122.90</td>
+<td style="text-align: right;">₹8,983.20</td>
+<td style="text-align: right;"><span class="down">▼ 11.93%</span></td>
+<td style="text-align: left;"><span class="verdict verdict-trim">EXIT</span></td>
+</tr>
+</tbody>
+</table>
+<h2>Mutual funds</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Fund</th>
+<th style="text-align: right;">Invested</th>
+<th style="text-align: right;">Current</th>
+<th style="text-align: right;">P&amp;L %</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Parag Parikh Flexi Cap</td>
+<td style="text-align: right;">₹12,942.18</td>
+<td style="text-align: right;">₹17,340.42</td>
+<td style="text-align: right;"><span class="up">▲ 33.98%</span></td>
+</tr>
+<tr>
+<td style="text-align: left;">ICICI Prudential Liquid</td>
+<td style="text-align: right;">₹8,450.75</td>
+<td style="text-align: right;">₹9,149.18</td>
+<td style="text-align: right;"><span class="up">▲ 8.26%</span></td>
+</tr>
+</tbody>
+</table>
+<h1>What moved</h1>
+<ul>
+<li><strong>GOLDBEES</strong> <span class="up">▲ 31.82%</span> — no clear driver in the data.</li>
+<li><strong>LT</strong> <span class="up">▲ 23.65%</span> — no clear driver in the data.</li>
+<li><strong>TITAN</strong> <span class="up">▲ 18.31%</span> — strong momentum with a 3-month return of 23.92%.</li>
+<li><strong>INFY</strong> <span class="down">▼ 11.93%</span> — no clear driver in the data.</li>
+<li><strong>ITC</strong> <span class="down">▼ 8.83%</span> — sustained weakness with a 3-month return of <span class="down">▼ 7.12%</span>.</li>
+<li><strong>SUNPHARMA</strong> <span class="down">▼ 6.14%</span> — short-term decline of <span class="down">▼ 3.23%</span> over the last month.</li>
+</ul>
+<h1>Allocation</h1>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Sector</th>
+<th style="text-align: right;">Value</th>
+<th style="text-align: right;">Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Mutual Funds</td>
+<td style="text-align: right;">₹26,489.60</td>
+<td style="text-align: right;">23.66%</td>
+</tr>
+<tr>
+<td style="text-align: left;">Index &amp; Commodities</td>
+<td style="text-align: right;">₹25,863.97</td>
+<td style="text-align: right;">23.11%</td>
+</tr>
+<tr>
+<td style="text-align: left;">Industrials</td>
+<td style="text-align: right;">₹12,155.70</td>
+<td style="text-align: right;">10.86%</td>
+</tr>
+<tr>
+<td style="text-align: left;">Consumer Cyclical</td>
+<td style="text-align: right;">₹10,222.00</td>
+<td style="text-align: right;">9.13%</td>
+</tr>
+<tr>
+<td style="text-align: left;">Healthcare</td>
+<td style="text-align: right;">₹9,550.00</td>
+<td style="text-align: right;">8.53%</td>
+</tr>
+<tr>
+<td style="text-align: left;">Financial Services</td>
+<td style="text-align: right;">₹9,455.55</td>
+<td style="text-align: right;">8.45%</td>
+</tr>
+<tr>
+<td style="text-align: left;">Consumer Defensive</td>
+<td style="text-align: right;">₹9,219.10</td>
+<td style="text-align: right;">8.24%</td>
+</tr>
+<tr>
+<td style="text-align: left;">Technology</td>
+<td style="text-align: right;">₹8,983.20</td>
+<td style="text-align: right;">8.03%</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>The portfolio is well-diversified with no single sector or holding exceeding 25% of total value.</li>
+<li>Combined exposure to passive index and gold ETFs represents 23.11% of the total capital.</li>
+</ul>
+<h1>Market backdrop</h1>
+<h2>India</h2>
+<ul>
+<li>No FII/DII flow data was found for August 2026.</li>
+<li>Domestic earnings themes and RBI policy data were not available in the research set.</li>
+</ul>
+<h2>Global</h2>
+<ul>
+<li>No data was found regarding Federal Reserve actions or US Treasury yields.</li>
+<li>Brent crude and US Dollar Index levels were not provided for this period.</li>
+</ul>
+<h1>The calls</h1>
+<ol>
+<li><strong>EXIT INFY</strong> — The investment thesis has broken as the stock is down <span class="down">▼ 11.93%</span> and remains 35.02% below its 52-week high.</li>
+<li><strong>ADD HDFCBANK</strong> — Accumulate at current levels as the stock trades at a conservative PB ratio of 1.85 and is 28.73% off its 52-week high.</li>
+<li><strong>TRIM TITAN</strong> — The stock looks expensive at a PE ratio of 77.91 and is trading within 1.10% of its 52-week high.</li>
+<li><strong>HOLD ITC</strong> — Maintain position to capture the 5.90% dividend yield despite recent price weakness.</li>
+</ol>
+<h1>Watchlist</h1>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Name</th>
+<th style="text-align: left;">Why now</th>
+<th style="text-align: right;">Entry below</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">RELIANCE</td>
+<td style="text-align: left;">Energy and retail expansion</td>
+<td style="text-align: right;">Data not available</td>
+</tr>
+<tr>
+<td style="text-align: left;">TCS</td>
+<td style="text-align: left;">Defensive IT exposure</td>
+<td style="text-align: right;">Data not available</td>
+</tr>
+</tbody>
+</table>
+  </td></tr>
+
+  <tr><td class="footer">
+    <div class="rule"></div>
+    <p>Portfolio Monitor &middot; generated 26 Aug 2026, 03:28 PM IST</p>
+    <p>Holdings from Zerodha Kite. Prices and fundamentals from Yahoo Finance.</p>
+    <p class="disclaimer">Analysis is model-generated and is not investment advice.</p>
+  </td></tr>
+
+</table>
+
+</td></tr>
+</table>
+</body>
+</html>
