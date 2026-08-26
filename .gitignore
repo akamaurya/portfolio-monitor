@@ -23,3 +23,5 @@ logs/
 
 # Tests
 .pytest_cache/
+# Local email previews (python main.py --preview)
+out/
