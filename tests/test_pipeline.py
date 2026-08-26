@@ -133,15 +133,65 @@ def test_render_email_fills_template_and_subject():
     assert "<table>" in html          # markdown tables extension is enabled
     assert "<h1>Heading</h1>" in html
     assert "{" not in html.split("<body>")[1]   # no unfilled placeholders
-    assert "positive" in html
+    assert 'class="up"' in html
 
 
-def test_render_email_marks_losses_negative():
+def test_render_email_marks_losses():
     summary = build_portfolio_summary([_holding("INFY", 10, 100.0, 60.0)])
     subject, html = render_email("loss month", summary)
 
     assert "-40.00%" in subject
-    assert 'card-value negative' in html
+    assert 'class="down"' in html
+    # The figure itself is shown unsigned beside a ▼, so no stray minus leaks in.
+    assert "−₹400" in html or "&#8377;400" in html
+
+
+def test_email_layout_uses_tables_not_flexbox():
+    """Gmail and Outlook strip flex/grid; a flex row there collapses silently."""
+    summary = build_portfolio_summary([_holding("INFY", 10, 100.0, 150.0)])
+    _, html = render_email("body", summary)
+
+    assert "display:flex" not in html.replace(" ", "")
+    assert "display:grid" not in html.replace(" ", "")
+    assert '<table role="presentation"' in html
+
+
+def test_direction_markers_are_coloured():
+    summary = build_portfolio_summary([_holding("INFY", 10, 100.0, 150.0)])
+    _, html = render_email("INFY ▲ 12.40% and ITC ▼ 3.10%", summary)
+
+    assert '<span class="up">▲ 12.40%</span>' in html
+    assert '<span class="down">▼ 3.10%</span>' in html
+
+
+def test_verdict_cells_become_chips_but_prose_is_left_alone():
+    summary = build_portfolio_summary([_holding("INFY", 10, 100.0, 150.0)])
+    report = (
+        "| Stock | Call |\n|:------|:-----|\n| INFY | HOLD |\n\n"
+        "We hold this through the quarter."
+    )
+    _, html = render_email(report, summary)
+
+    assert 'class="verdict verdict-hold">HOLD<' in html
+    # The word inside the sentence must not be chipped.
+    assert "We hold this through the quarter." in html
+
+
+def test_allocation_bar_omits_a_zero_segment():
+    """A portfolio with no funds should not render an empty bar cell."""
+    summary = build_portfolio_summary([_holding("INFY", 10, 100.0, 150.0)], [])
+    _, html = render_email("body", summary)
+
+    assert "Equity" in html
+    assert "Mutual funds" not in html
+
+
+def test_render_email_handles_an_empty_portfolio():
+    """Nothing held is a valid state; it must not divide by zero or crash."""
+    subject, html = render_email("nothing to report", build_portfolio_summary([], []))
+
+    assert "+0.00%" in subject
+    assert "<body>" in html
 
 
 # ── DuckDuckGo redirect resolution ───────────────────────────────
@@ -196,3 +246,211 @@ def test_get_holdings_survives_accounts_without_mutual_funds():
     data = get_holdings(NoMF())
     assert data["mf_holdings"] == []
     assert len(data["holdings"]) == 2
+
+
+# ── Demo fixture ─────────────────────────────────────────────────
+def test_demo_fixture_flows_through_the_real_cleaning_code():
+    """The fixture stands in for Kite, so it must satisfy get_holdings()."""
+    from src.demo import DemoKite
+
+    data = get_holdings(DemoKite())
+
+    assert len(data["holdings"]) == 8
+    assert len(data["mf_holdings"]) == 2
+    assert data["positions"] == []
+
+    for h in data["holdings"]:
+        assert h["symbol"] and h["exchange"] == "NSE"
+        assert h["avg_cost"] > 0 and h["quantity"] > 0
+        assert h["isin"]
+
+
+def test_demo_fixture_tickers_resolve_for_yahoo():
+    """Live pricing is the point of demo mode, so every symbol must map."""
+    from src.demo import DemoKite
+
+    for h in get_holdings(DemoKite())["holdings"]:
+        ticker = _build_ticker(h["symbol"], h["exchange"])
+        assert ticker.endswith(".NS")
+        assert " " not in ticker
+
+
+def test_demo_fixture_has_both_winners_and_losers():
+    """An all-green demo portfolio makes the note look cherry-picked."""
+    from src.demo import DemoKite
+
+    mf = get_holdings(DemoKite())["mf_holdings"]
+    assert all(m["invested"] > 0 for m in mf)
+
+    # Average costs are spread either side of the usual trading bands; assert
+    # the spread exists rather than the sign of any single live P&L.
+    ratios = [h["last_kite_price"] / h["avg_cost"]
+              for h in get_holdings(DemoKite())["holdings"]]
+    assert min(ratios) > 0
+
+
+# ── Gemini response validation ───────────────────────────────────
+class _FakeResponse:
+    def __init__(self, text, finish_reason="STOP"):
+        self.text = text
+        self.usage_metadata = None
+        self.candidates = [type("C", (), {"finish_reason": finish_reason})()]
+
+
+def _run_generate(monkeypatch, response):
+    """Drive generate_report against a stubbed Gemini client."""
+    from src import analyst
+
+    calls = []
+
+    class _FakeModels:
+        def generate_content(self, model, contents, config):
+            calls.append(model)
+            return response
+
+    class _FakeClient:
+        def __init__(self, api_key):
+            self.models = _FakeModels()
+
+    monkeypatch.setattr(analyst.genai, "Client", _FakeClient)
+    monkeypatch.setenv("GEMINI_API_KEY1", "test-key")
+    monkeypatch.delenv("GEMINI_API_KEY2", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY3", raising=False)
+    # Isolate the Gemini path; callers that want Kimi set it back afterwards.
+    monkeypatch.delenv("KIMI_API_KEY", raising=False)
+    return analyst, calls
+
+
+_FULL_REPORT = (
+    "# The month in one line\nx\n\n# Holdings\nx\n\n"
+    "# What moved\nx\n\n# Allocation\nx\n\n# The calls\nx\n"
+)
+
+
+def test_truncated_report_is_rejected_and_retried(monkeypatch):
+    """A note cut off mid-table still looks deliverable — it must not ship."""
+    analyst, calls = _run_generate(
+        monkeypatch, _FakeResponse("# The month in one line\n\n| Metric |", "MAX_TOKENS")
+    )
+
+    with pytest.raises(RuntimeError, match="All models"):
+        analyst.generate_report([], [], {}, "")
+
+    # Every model in the chain was tried before giving up.
+    assert calls == analyst._GEMINI_MODELS
+
+
+def test_report_with_too_few_sections_is_rejected(monkeypatch):
+    analyst, _ = _run_generate(monkeypatch, _FakeResponse("# Only one section\n\ntext"))
+
+    with pytest.raises(RuntimeError, match="All models"):
+        analyst.generate_report([], [], {}, "")
+
+
+def test_complete_report_is_returned(monkeypatch):
+    analyst, calls = _run_generate(monkeypatch, _FakeResponse(_FULL_REPORT))
+
+    assert analyst.generate_report([], [], {}, "") == _FULL_REPORT
+    assert len(calls) == 1   # succeeded on the first model, no needless retries
+
+
+# ── Kimi provider ────────────────────────────────────────────────
+class _FakeHTTPResponse:
+    def __init__(self, payload, status=200):
+        self._payload = payload
+        self.status_code = status
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP {self.status_code}")
+
+    def json(self):
+        return self._payload
+
+
+def _kimi_payload(content, finish_reason="stop"):
+    return {
+        "choices": [{"message": {"content": content}, "finish_reason": finish_reason}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
+    }
+
+
+def test_kimi_is_tried_before_gemini(monkeypatch):
+    from src import analyst
+
+    posted = []
+
+    def fake_post(url, **kwargs):
+        posted.append(kwargs["json"]["model"])
+        return _FakeHTTPResponse(_kimi_payload(_FULL_REPORT))
+
+    monkeypatch.setattr(analyst.requests, "post", fake_post)
+    monkeypatch.setenv("KIMI_API_KEY", "sk-test")
+    monkeypatch.setenv("GEMINI_API_KEY1", "gem-test")
+
+    assert analyst.generate_report([], [], {}, "") == _FULL_REPORT
+    assert posted == ["kimi-k3"]   # first model answered; no needless fallback
+
+
+def test_kimi_falls_back_to_its_second_model(monkeypatch):
+    from src import analyst
+
+    posted = []
+
+    def fake_post(url, **kwargs):
+        model = kwargs["json"]["model"]
+        posted.append(model)
+        if model == "kimi-k3":
+            return _FakeHTTPResponse(
+                {"error": {"message": "insufficient balance"}}, status=200
+            )
+        return _FakeHTTPResponse(_kimi_payload(_FULL_REPORT))
+
+    monkeypatch.setattr(analyst.requests, "post", fake_post)
+    monkeypatch.setenv("KIMI_API_KEY", "sk-test")
+    monkeypatch.delenv("GEMINI_API_KEY1", raising=False)
+
+    assert analyst.generate_report([], [], {}, "") == _FULL_REPORT
+    assert posted == ["kimi-k3", "kimi-k2.6"]
+
+
+def test_kimi_truncation_is_rejected_like_geminis(monkeypatch):
+    """OpenAI-style APIs report a cut-off with finish_reason 'length'."""
+    from src import analyst
+
+    monkeypatch.setattr(
+        analyst.requests, "post",
+        lambda url, **kw: _FakeHTTPResponse(_kimi_payload("# One\n\n| a |", "length")),
+    )
+    monkeypatch.setenv("KIMI_API_KEY", "sk-test")
+    monkeypatch.delenv("GEMINI_API_KEY1", raising=False)
+
+    with pytest.raises(RuntimeError, match="All models"):
+        analyst.generate_report([], [], {}, "")
+
+
+def test_dead_kimi_key_falls_through_to_gemini(monkeypatch):
+    """A suspended Moonshot account must not cost you the month's report."""
+    from src import analyst
+
+    def dead_post(url, **kwargs):
+        return _FakeHTTPResponse(
+            {"error": {"message": "account suspended due to insufficient balance"}}
+        )
+
+    monkeypatch.setattr(analyst.requests, "post", dead_post)
+    analyst_mod, calls = _run_generate(monkeypatch, _FakeResponse(_FULL_REPORT))
+    monkeypatch.setenv("KIMI_API_KEY", "sk-dead")
+
+    assert analyst_mod.generate_report([], [], {}, "") == _FULL_REPORT
+    assert calls == analyst_mod._GEMINI_MODELS[:1]
+
+
+def test_no_keys_at_all_is_an_explicit_error(monkeypatch):
+    from src import analyst
+
+    for var in ("KIMI_API_KEY", "GEMINI_API_KEY1", "GEMINI_API_KEY2", "GEMINI_API_KEY3"):
+        monkeypatch.delenv(var, raising=False)
+
+    with pytest.raises(ValueError, match="No Gemini or Kimi API keys"):
+        analyst.generate_report([], [], {}, "")
