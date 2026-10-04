@@ -160,29 +160,20 @@ def _validate(report_text: str | None, finish_reason) -> str:
 
 
 # ── OpenAI-compatible providers ──────────────────────────────────
-# NVIDIA and Moonshot both speak the OpenAI chat-completions protocol, so one
-# function serves both and plain requests does the job — no extra dependency.
+# Groq speaks the OpenAI chat-completions protocol, so plain requests does the
+# job — no extra dependency. Providers are tried top to bottom, and each of a
+# provider's models in turn, before falling through to Gemini.
 #
-# Providers are tried top to bottom, and each of a provider's models in turn,
-# before falling through to Gemini. NVIDIA leads because it is the one that
-# currently answers.
-#
-# deepseek-ai/deepseek-v4-flash-0731 is listed in NVIDIA's catalogue but its
-# inference function is not provisioned for this account — it returns
-# "Specified function in account ... is not found". Add it to the model list
-# below if that access is ever granted.
+# Qwen 3.8 is a reasoning model. Groq's default reasoning_format "raw" inlines
+# the <think> block into content, which would land in the report, so it is
+# hidden: only the final answer comes back.
 _OPENAI_PROVIDERS = [
     {
-        "label": "NVIDIA",
-        "env": "NVIDIA_API_KEY",
-        "url": "https://integrate.api.nvidia.com/v1/chat/completions",
-        "models": ["moonshotai/kimi-k3"],
-    },
-    {
-        "label": "Kimi",
-        "env": "KIMI_API_KEY",
-        "url": "https://api.moonshot.ai/v1/chat/completions",
-        "models": ["kimi-k3", "kimi-k2.6"],
+        "label": "Groq",
+        "env": "GROQ_API_KEY",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "models": ["qwen/qwen3.8-27b"],
+        "extra": {"reasoning_format": "hidden"},
     },
 ]
 
@@ -217,12 +208,13 @@ def _generate_via_openai_api(prompt: str, provider: dict, api_key: str) -> str:
                     ],
                     "temperature": 0.3,
                     "max_tokens": _OPENAI_MAX_TOKENS,
+                    **provider.get("extra", {}),
                 },
                 timeout=_OPENAI_TIMEOUT,
             )
 
-            # Read the body before raising: both providers put the useful part
-            # ("insufficient balance", "function not found") in the payload,
+            # Read the body before raising: providers put the useful part
+            # ("rate limit", "model not found") in the payload,
             # and raise_for_status alone reduces that to "429 Client Error".
             try:
                 data = resp.json()
@@ -234,11 +226,6 @@ def _generate_via_openai_api(prompt: str, provider: dict, api_key: str) -> str:
                 raise RuntimeError(
                     f"{err.get('type', 'error')}: {err.get('message', 'unknown error')}"
                 )
-
-            # NVIDIA reports routing failures as a bare {status, title, detail}
-            # object rather than an OpenAI-shaped error.
-            if isinstance(data, dict) and "choices" not in data and data.get("detail"):
-                raise RuntimeError(f"{data.get('title', 'error')}: {data['detail']}")
 
             resp.raise_for_status()
 
@@ -286,7 +273,7 @@ def generate_report(
     """
     Produce the monthly markdown note, grounded in live market research.
 
-    Kimi is tried first when KIMI_API_KEY is set, then the Gemini chain.
+    Groq (Qwen) is tried first when GROQ_API_KEY is set, then the Gemini chain.
     Whichever provider answers, the result must survive the same validation:
     a truncated or half-written note is rejected rather than delivered.
     """
@@ -306,7 +293,7 @@ def generate_report(
     if not api_keys and not configured:
         raise ValueError(
             "No API keys found in environment variables — set at least one of "
-            "NVIDIA_API_KEY, KIMI_API_KEY or GEMINI_API_KEY1."
+            "GROQ_API_KEY or GEMINI_API_KEY1."
         )
 
     now = now_ist()

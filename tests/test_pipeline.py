@@ -316,7 +316,7 @@ def _run_generate(monkeypatch, response):
     monkeypatch.setenv("GEMINI_API_KEY1", "test-key")
     monkeypatch.delenv("GEMINI_API_KEY2", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY3", raising=False)
-    # Isolate the Gemini path; callers that want Kimi set it back afterwards.
+    # Isolate the Gemini path; callers that want Groq set it back afterwards.
     for prov in analyst._OPENAI_PROVIDERS:
         monkeypatch.delenv(prov["env"], raising=False)
     return analyst, calls
@@ -355,7 +355,7 @@ def test_complete_report_is_returned(monkeypatch):
     assert len(calls) == 1   # succeeded on the first model, no needless retries
 
 
-# ── OpenAI-compatible providers (NVIDIA, Kimi) ───────────────────
+# ── OpenAI-compatible providers (Groq) ───────────────────────────
 class _FakeHTTPResponse:
     def __init__(self, payload, status=200):
         self._payload = payload
@@ -390,90 +390,31 @@ def _only_provider(monkeypatch, label):
     return analyst
 
 
-def test_nvidia_is_tried_before_kimi_and_gemini(monkeypatch):
+def test_groq_qwen_is_tried_before_gemini(monkeypatch):
     from src import analyst
 
     posted = []
 
     def fake_post(url, **kwargs):
-        posted.append((url, kwargs["json"]["model"]))
+        posted.append((url, kwargs["json"]))
         return _FakeHTTPResponse(_chat_payload(_FULL_REPORT))
 
     monkeypatch.setattr(analyst.requests, "post", fake_post)
-    for prov in analyst._OPENAI_PROVIDERS:
-        monkeypatch.setenv(prov["env"], "key-test")
+    monkeypatch.setenv("GROQ_API_KEY", "key-test")
     monkeypatch.setenv("GEMINI_API_KEY1", "gem-test")
 
     assert analyst.generate_report([], [], {}, "") == _FULL_REPORT
-    # NVIDIA answered first; Moonshot was never contacted.
     assert len(posted) == 1
-    assert "integrate.api.nvidia.com" in posted[0][0]
-    assert posted[0][1] == "moonshotai/kimi-k3"
-
-
-def test_provider_falls_through_to_the_next_provider(monkeypatch):
-    """A dead NVIDIA key must not cost the month's report."""
-    from src import analyst
-
-    posted = []
-
-    def fake_post(url, **kwargs):
-        posted.append(url)
-        if "nvidia" in url:
-            return _FakeHTTPResponse(
-                {"status": 404, "title": "Not Found",
-                 "detail": "Specified function in account is not found"}
-            )
-        return _FakeHTTPResponse(_chat_payload(_FULL_REPORT))
-
-    monkeypatch.setattr(analyst.requests, "post", fake_post)
-    for prov in analyst._OPENAI_PROVIDERS:
-        monkeypatch.setenv(prov["env"], "key-test")
-    monkeypatch.delenv("GEMINI_API_KEY1", raising=False)
-
-    assert analyst.generate_report([], [], {}, "") == _FULL_REPORT
-    assert any("nvidia" in u for u in posted)
-    assert any("moonshot" in u for u in posted)
-
-
-def test_nvidia_routing_failure_is_reported_not_swallowed(monkeypatch):
-    """NVIDIA reports routing errors as a bare detail object, not an OpenAI error."""
-    from src import analyst
-
-    analyst_mod = _only_provider(monkeypatch, "NVIDIA")
-    monkeypatch.setattr(
-        analyst_mod.requests, "post",
-        lambda url, **kw: _FakeHTTPResponse(
-            {"status": 404, "title": "Not Found", "detail": "function not found"}
-        ),
-    )
-
-    with pytest.raises(RuntimeError, match="All models"):
-        analyst_mod.generate_report([], [], {}, "")
-
-
-def test_kimi_falls_back_to_its_second_model(monkeypatch):
-    from src import analyst
-
-    posted = []
-
-    def fake_post(url, **kwargs):
-        model = kwargs["json"]["model"]
-        posted.append(model)
-        if model == "kimi-k3":
-            return _FakeHTTPResponse({"error": {"message": "insufficient balance"}})
-        return _FakeHTTPResponse(_chat_payload(_FULL_REPORT))
-
-    analyst_mod = _only_provider(monkeypatch, "Kimi")
-    monkeypatch.setattr(analyst_mod.requests, "post", fake_post)
-
-    assert analyst_mod.generate_report([], [], {}, "") == _FULL_REPORT
-    assert posted == ["kimi-k3", "kimi-k2.6"]
+    url, body = posted[0]
+    assert "api.groq.com" in url
+    assert body["model"] == "qwen/qwen3.8-27b"
+    # "raw" (Groq's default) would put the <think> block into the report.
+    assert body["reasoning_format"] == "hidden"
 
 
 def test_openai_truncation_is_rejected_like_geminis(monkeypatch):
     """OpenAI-style APIs report a cut-off with finish_reason 'length'."""
-    analyst_mod = _only_provider(monkeypatch, "NVIDIA")
+    analyst_mod = _only_provider(monkeypatch, "Groq")
     monkeypatch.setattr(
         analyst_mod.requests, "post",
         lambda url, **kw: _FakeHTTPResponse(_chat_payload("# One\n\n| a |", "length")),
@@ -485,7 +426,7 @@ def test_openai_truncation_is_rejected_like_geminis(monkeypatch):
 
 def test_reasoning_field_is_not_mistaken_for_the_report(monkeypatch):
     """Reasoning models return the chain of thought separately; only content counts."""
-    analyst_mod = _only_provider(monkeypatch, "NVIDIA")
+    analyst_mod = _only_provider(monkeypatch, "Groq")
     payload = _chat_payload(_FULL_REPORT)
     payload["choices"][0]["message"]["reasoning_content"] = "thinking out loud" * 50
 
