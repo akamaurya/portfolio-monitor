@@ -65,6 +65,10 @@ class KiteWeb:
         """Fetch mutual fund (Coin) holdings."""
         return self._get("/oms/mf/holdings")
 
+    def margins(self) -> dict:
+        """Fetch funds (cash sitting in the Kite account)."""
+        return self._get("/oms/user/margins")
+
     def profile(self) -> dict:
         """Fetch user profile (useful for verifying auth)."""
         return self._get("/oms/user/profile")
@@ -150,6 +154,6 @@ def authenticate() -> KiteWeb:
 
     # Verify by fetching profile
     profile = kite.profile()
-    logger.info("Authenticated as: %s", profile.get("user_name", user_id))
+    logger.info("Authenticated (profile %s).", "ok" if profile else "empty")
 
     return kite

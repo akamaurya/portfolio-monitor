@@ -79,9 +79,10 @@ def enrich_with_prices(holdings: list[dict]) -> list[dict]:
     """
     enriched = []
 
-    for h in holdings:
+    # Log positions, not symbols: Actions logs on this public repo are public.
+    for i, h in enumerate(holdings, 1):
         ticker_str = _build_ticker(h["symbol"], h["exchange"])
-        logger.info("Fetching yfinance data for %s → %s", h["symbol"], ticker_str)
+        logger.info("Fetching yfinance data for holding %d/%d", i, len(holdings))
 
         try:
             ticker = yf.Ticker(ticker_str)
@@ -95,10 +96,7 @@ def enrich_with_prices(holdings: list[dict]) -> list[dict]:
             # Fall back to Kite's last price if Yahoo returns nothing useful
             if current_price is None:
                 current_price = h.get("last_kite_price")
-                logger.warning(
-                    "%s: Yahoo returned no price — falling back to Kite last_price (₹%s).",
-                    h["symbol"], current_price,
-                )
+                logger.warning("Holding %d: Yahoo returned no price — falling back to Kite last_price.", i)
 
             high_52w = _safe_get(info, "fiftyTwoWeekHigh")
             low_52w = _safe_get(info, "fiftyTwoWeekLow")
@@ -135,7 +133,7 @@ def enrich_with_prices(holdings: list[dict]) -> list[dict]:
             })
 
         except Exception as exc:
-            logger.warning("Failed to fetch data for %s (%s): %s", h["symbol"], ticker_str, exc)
+            logger.warning("Failed to fetch data for holding %d: %s", i, type(exc).__name__)
             # Attach None placeholders so downstream code doesn't crash
             h.update({
                 "yahoo_ticker": ticker_str,

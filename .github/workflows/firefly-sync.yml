@@ -1,0 +1,36 @@
+name: Weekly Firefly Sync
+
+on:
+  schedule:
+    # Saturday 01:30 UTC → 07:00 AM IST: Friday's close and Friday-night MF NAVs are in
+    - cron: '30 1 * * 6'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Compute only, post nothing
+        type: boolean
+        default: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      KITE_USER_ID: ${{ secrets.KITE_USER_ID }}
+      KITE_PASSWORD: ${{ secrets.KITE_PASSWORD }}
+      KITE_TOTP_SECRET: ${{ secrets.KITE_TOTP_SECRET }}
+      FIREFLY_URL: ${{ secrets.FIREFLY_URL }}
+      FIREFLY_TOKEN: ${{ secrets.FIREFLY_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - run: python firefly_sync.py ${{ inputs.dry_run && '--dry-run' || '' }}

@@ -29,6 +29,9 @@ logging.basicConfig(
     format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+# yfinance's own errors name the ticker ("$RCOM.NS: No data found"), which would
+# publish holdings in the public Actions log.
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 logger = logging.getLogger("portfolio-monitor")
 
 TOTAL_STEPS = 7
@@ -94,12 +97,7 @@ def main() -> None:
     # ── 4. Build portfolio summary ───────────────────────────────
     _step(4, "Building portfolio summary…")
     summary = build_portfolio_summary(enriched, mf_holdings)
-    logger.info(
-        "Summary: invested ₹%s, current ₹%s, P&L %+.2f%%",
-        f"{summary['total_invested']:,.2f}",
-        f"{summary['total_current_value']:,.2f}",
-        summary["total_unrealized_pnl_pct"],
-    )
+    logger.info("Summary built.")  # no amounts: Actions logs on this public repo are public
 
     # ── 5. Gather market research context ────────────────────────
     _step(5, "Gathering market research context…")
