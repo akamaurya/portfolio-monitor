@@ -104,8 +104,8 @@ def main() -> None:
     research_context = gather_research_context()
     logger.info("Research context gathered (%d chars).", len(research_context))
 
-    # ── 6. Generate Gemini report ────────────────────────────────
-    _step(6, "Generating report via Gemini API…")
+    # ── 6. Generate the report ───────────────────────────────────
+    _step(6, "Generating report…")
     report = generate_report(enriched, mf_holdings, summary, research_context)
     logger.info("Report generated (%d chars).", len(report))
 

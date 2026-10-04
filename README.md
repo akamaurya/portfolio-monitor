@@ -49,7 +49,7 @@ The result is headless, dependency-light (`requests` + `pyotp`, no browser), and
 A few decisions worth calling out, since they're what make an unattended monthly job trustworthy:
 
 - **Degrade, don't crash.** A missing Yahoo ticker, an empty mutual fund account or an unreachable brokerage PDF each log a warning and continue. Only auth, Gemini and SMTP failures are fatal.
-- **Fallback chain for the LLM.** Kimi first when `KIMI_API_KEY` is set, then three Gemini models × up to three keys. A response that comes back empty, blocked, truncated, or missing most of its sections is treated as a failure so the next combination is tried — a note cut off mid-table is worse than none at all, because it still looks deliverable.
+- **Fallback chain for the LLM.** NVIDIA first, then Moonshot, then two Gemini models × up to three keys — nine combinations in all. NVIDIA and Moonshot both speak the OpenAI chat-completions protocol, so one function serves both and adding a provider is a dict entry. A response that comes back empty, blocked, truncated, or missing most of its sections is treated as a failure so the next combination is tried — a note cut off mid-table is worse than none at all, because it still looks deliverable.
 - **Fail loudly when it does fail.** Any unhandled exception triggers a failure-alert email with the traceback, so a broken run can't quietly go unnoticed for a month.
 - **Everything is bounded.** Every HTTP and SMTP call has an explicit timeout, and the workflow has a 15-minute cap — a hung request can't burn CI minutes.
 - **IST everywhere.** Runners are UTC, but this is an India-market report; all dates and timestamps go through `src/clock.py` so month labels and the "generated at" stamp are correct.
@@ -74,13 +74,24 @@ A few decisions worth calling out, since they're what make an unattended monthly
 2. Create up to three keys (from different projects) for redundancy — only the first is required
 3. The free tier is far more than enough: this runs one request per month
 
-### 2b. Optional: a Kimi (Moonshot) key
+### 2b. Optional: an NVIDIA or Kimi key
 
-Set `KIMI_API_KEY` and the pipeline tries Kimi (`kimi-k3`, then `kimi-k2.6`)
-before touching Gemini, falling back automatically if the key is rate-limited,
-out of balance or the model is unavailable. The endpoint is OpenAI-compatible,
-so this needs no extra dependency — get a key at
-[platform.moonshot.ai](https://platform.moonshot.ai).
+Both are OpenAI-compatible, so neither needs an extra dependency, and both are
+tried before Gemini:
+
+| Env var | Provider | Models tried |
+|---------|----------|--------------|
+| `NVIDIA_API_KEY` | [build.nvidia.com](https://build.nvidia.com) | `moonshotai/kimi-k3` |
+| `KIMI_API_KEY` | [platform.moonshot.ai](https://platform.moonshot.ai) | `kimi-k3`, then `kimi-k2.6` |
+
+Any provider that is rate-limited, out of balance or missing the model is
+skipped and the next one is tried, so an outage at one never costs you the
+month's report.
+
+Note that a model appearing in NVIDIA's catalogue does not mean your account
+can run it: `deepseek-ai/deepseek-v4-flash-0731` lists fine but returns
+`Specified function in account … is not found`. Add extra models to
+`_OPENAI_PROVIDERS` in `src/analyst.py` once you have confirmed they answer.
 
 ### 3. Create a Gmail app password
 
@@ -97,7 +108,8 @@ Push the repo, then go to **Settings → Secrets and variables → Actions** and
 | `KITE_PASSWORD`      | ✅        | Zerodha login password                             |
 | `KITE_TOTP_SECRET`   | ✅        | Base32 TOTP secret (not the 6-digit code)          |
 | `GEMINI_API_KEY1`    | ✅        | Gemini API key from Google AI Studio               |
-| `KIMI_API_KEY`       | —        | Moonshot/Kimi key; tried before Gemini when set    |
+| `NVIDIA_API_KEY`     | —        | NVIDIA build key; tried first when set             |
+| `KIMI_API_KEY`       | —        | Moonshot/Kimi key; tried after NVIDIA              |
 | `GEMINI_API_KEY2`    | —        | Fallback Gemini key                                |
 | `GEMINI_API_KEY3`    | —        | Second fallback Gemini key                         |
 | `GMAIL_ADDRESS`      | ✅        | Gmail address to send from                         |
@@ -208,6 +220,7 @@ Each source is best-effort: whatever is reachable that month goes into the promp
 | Zerodha Kite       | Free — no Kite Connect app needed  | 1 login/month         |
 | Yahoo Finance      | Unlimited                          | ~20–50 lookups/month  |
 | Google Gemini API  | Generous free tier                 | 1 request/month       |
+| NVIDIA build       | Free tier, optional                | 1 request/month       |
 | Kimi / Moonshot    | Paid, optional                     | 1 request/month       |
 | Gmail SMTP         | 500 emails/day                     | 1–2 emails/month      |
 | GitHub Actions     | 2,000 minutes/month                | ~5 minutes/month      |
@@ -228,7 +241,7 @@ Each source is best-effort: whatever is reachable that month goes into the promp
 
 **Gemini errors.** Up to nine model/key combinations are attempted — the logs name the failure for each. Preview model IDs change; update `models_to_try` in `src/analyst.py` if they're retired.
 
-**Kimi errors.** The logs print Moonshot's own message rather than the bare HTTP status, so `exceeded_current_quota_error: … suspended due to insufficient balance` means the account needs topping up, not that the key is wrong. Kimi failures are never fatal — the run falls through to Gemini.
+**Provider errors.** The logs print each provider's own message rather than the bare HTTP status. `exceeded_current_quota_error: … insufficient balance` means a Moonshot account needs topping up; `Not Found: Specified function in account … is not found` means NVIDIA lists the model but has not provisioned it for your account. Neither is fatal — the run moves to the next provider and finally to Gemini.
 
 **The report arrives half-written.** It shouldn't: a truncated response is rejected and the next model is tried. If it happens anyway, the note ran long enough to exhaust `max_output_tokens` in `src/analyst.py` — raise it. Gemini 3 counts thinking tokens against that same budget, which is why it is set well above the length of the note itself.
 

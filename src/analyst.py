@@ -159,22 +159,52 @@ def _validate(report_text: str | None, finish_reason) -> str:
     return report_text
 
 
-# ── Kimi (Moonshot) ──────────────────────────────────────────────
-# OpenAI-compatible, so plain requests does the job — no extra dependency.
-_KIMI_URL = "https://api.moonshot.ai/v1/chat/completions"
-_KIMI_MODELS = ["kimi-k3", "kimi-k2.6"]
-_KIMI_TIMEOUT = 180
+# ── OpenAI-compatible providers ──────────────────────────────────
+# NVIDIA and Moonshot both speak the OpenAI chat-completions protocol, so one
+# function serves both and plain requests does the job — no extra dependency.
+#
+# Providers are tried top to bottom, and each of a provider's models in turn,
+# before falling through to Gemini. NVIDIA leads because it is the one that
+# currently answers.
+#
+# deepseek-ai/deepseek-v4-flash-0731 is listed in NVIDIA's catalogue but its
+# inference function is not provisioned for this account — it returns
+# "Specified function in account ... is not found". Add it to the model list
+# below if that access is ever granted.
+_OPENAI_PROVIDERS = [
+    {
+        "label": "NVIDIA",
+        "env": "NVIDIA_API_KEY",
+        "url": "https://integrate.api.nvidia.com/v1/chat/completions",
+        "models": ["moonshotai/kimi-k3"],
+    },
+    {
+        "label": "Kimi",
+        "env": "KIMI_API_KEY",
+        "url": "https://api.moonshot.ai/v1/chat/completions",
+        "models": ["kimi-k3", "kimi-k2.6"],
+    },
+]
+
+_OPENAI_TIMEOUT = 180
+# Reasoning models spend part of this budget thinking before they write, so it
+# has to comfortably exceed the length of the note itself.
+_OPENAI_MAX_TOKENS = 16384
 
 
-def _generate_via_kimi(prompt: str, api_key: str) -> str:
-    """Try each Kimi model in turn. Raises if none produce a valid report."""
+def _generate_via_openai_api(prompt: str, provider: dict, api_key: str) -> str:
+    """
+    Try each of a provider's models in turn over the OpenAI chat-completions
+    protocol. Raises if none produce a valid report.
+    """
+    label = provider["label"]
     last_err = None
 
-    for model in _KIMI_MODELS:
+    for model in provider["models"]:
         try:
-            logger.info("Calling Kimi model: %s with key starting %s***", model, api_key[:4])
+            logger.info("Calling %s model: %s with key starting %s***", label, model, api_key[:4])
             resp = requests.post(
-                _KIMI_URL,
+                provider["url"],
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -186,13 +216,14 @@ def _generate_via_kimi(prompt: str, api_key: str) -> str:
                         {"role": "user", "content": prompt},
                     ],
                     "temperature": 0.3,
-                    "max_tokens": 8192,
+                    "max_tokens": _OPENAI_MAX_TOKENS,
                 },
-                timeout=_KIMI_TIMEOUT,
+                timeout=_OPENAI_TIMEOUT,
             )
-            # Read the body before raising: Moonshot puts the useful part
-            # ("insufficient balance", "model not found") in the payload, and
-            # raise_for_status alone would reduce that to "429 Client Error".
+
+            # Read the body before raising: both providers put the useful part
+            # ("insufficient balance", "function not found") in the payload,
+            # and raise_for_status alone reduces that to "429 Client Error".
             try:
                 data = resp.json()
             except ValueError:
@@ -201,8 +232,13 @@ def _generate_via_kimi(prompt: str, api_key: str) -> str:
             if isinstance(data, dict) and "error" in data:
                 err = data["error"]
                 raise RuntimeError(
-                    f"{err.get('type', 'error')}: {err.get('message', 'unknown Kimi error')}"
+                    f"{err.get('type', 'error')}: {err.get('message', 'unknown error')}"
                 )
+
+            # NVIDIA reports routing failures as a bare {status, title, detail}
+            # object rather than an OpenAI-shaped error.
+            if isinstance(data, dict) and "choices" not in data and data.get("detail"):
+                raise RuntimeError(f"{data.get('title', 'error')}: {data['detail']}")
 
             resp.raise_for_status()
 
@@ -214,19 +250,21 @@ def _generate_via_kimi(prompt: str, api_key: str) -> str:
                 usage.get("total_tokens", "?"),
             )
 
+            # Reasoning models return their chain of thought in a separate
+            # field; only the content is the report.
             choice = (data.get("choices") or [{}])[0]
             text = _validate(
                 (choice.get("message") or {}).get("content"),
                 choice.get("finish_reason"),
             )
-            logger.info("Report generated (%d chars) using %s.", len(text), model)
+            logger.info("Report generated (%d chars) using %s via %s.", len(text), model, label)
             return text
 
         except Exception as exc:
-            logger.warning("Kimi model %s failed: %s", model, exc)
+            logger.warning("%s model %s failed: %s", label, model, exc)
             last_err = exc
 
-    raise RuntimeError(f"All Kimi models failed. Last error: {last_err}")
+    raise RuntimeError(f"All {label} models failed. Last error: {last_err}")
 
 
 # ── Gemini ───────────────────────────────────────────────────────
@@ -259,10 +297,17 @@ def generate_report(
     ]
     api_keys = [k for k in api_keys if k and k.strip()]
 
-    kimi_key = (os.environ.get("KIMI_API_KEY") or "").strip()
+    configured = [
+        (prov, (os.environ.get(prov["env"]) or "").strip())
+        for prov in _OPENAI_PROVIDERS
+    ]
+    configured = [(prov, key) for prov, key in configured if key]
 
-    if not api_keys and not kimi_key:
-        raise ValueError("No Gemini or Kimi API keys found in environment variables.")
+    if not api_keys and not configured:
+        raise ValueError(
+            "No API keys found in environment variables — set at least one of "
+            "NVIDIA_API_KEY, KIMI_API_KEY or GEMINI_API_KEY1."
+        )
 
     now = now_ist()
     prompt = _PROMPT_TEMPLATE.format(
@@ -288,11 +333,11 @@ def generate_report(
 
     last_err = None
 
-    if kimi_key:
+    for prov, key in configured:
         try:
-            return _generate_via_kimi(prompt, kimi_key)
+            return _generate_via_openai_api(prompt, prov, key)
         except Exception as exc:
-            logger.warning("Kimi unavailable, falling back to Gemini: %s", exc)
+            logger.warning("%s unavailable, trying the next provider: %s", prov["label"], exc)
             last_err = exc
 
     for model_name in _GEMINI_MODELS:

@@ -317,7 +317,8 @@ def _run_generate(monkeypatch, response):
     monkeypatch.delenv("GEMINI_API_KEY2", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY3", raising=False)
     # Isolate the Gemini path; callers that want Kimi set it back afterwards.
-    monkeypatch.delenv("KIMI_API_KEY", raising=False)
+    for prov in analyst._OPENAI_PROVIDERS:
+        monkeypatch.delenv(prov["env"], raising=False)
     return analyst, calls
 
 
@@ -354,7 +355,7 @@ def test_complete_report_is_returned(monkeypatch):
     assert len(calls) == 1   # succeeded on the first model, no needless retries
 
 
-# ── Kimi provider ────────────────────────────────────────────────
+# ── OpenAI-compatible providers (NVIDIA, Kimi) ───────────────────
 class _FakeHTTPResponse:
     def __init__(self, payload, status=200):
         self._payload = payload
@@ -368,28 +369,87 @@ class _FakeHTTPResponse:
         return self._payload
 
 
-def _kimi_payload(content, finish_reason="stop"):
+def _chat_payload(content, finish_reason="stop"):
     return {
         "choices": [{"message": {"content": content}, "finish_reason": finish_reason}],
         "usage": {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
     }
 
 
-def test_kimi_is_tried_before_gemini(monkeypatch):
+def _only_provider(monkeypatch, label):
+    """Configure exactly one OpenAI-compatible provider and no Gemini keys."""
+    from src import analyst
+
+    for prov in analyst._OPENAI_PROVIDERS:
+        if prov["label"] == label:
+            monkeypatch.setenv(prov["env"], "key-test")
+        else:
+            monkeypatch.delenv(prov["env"], raising=False)
+    for var in ("GEMINI_API_KEY1", "GEMINI_API_KEY2", "GEMINI_API_KEY3"):
+        monkeypatch.delenv(var, raising=False)
+    return analyst
+
+
+def test_nvidia_is_tried_before_kimi_and_gemini(monkeypatch):
     from src import analyst
 
     posted = []
 
     def fake_post(url, **kwargs):
-        posted.append(kwargs["json"]["model"])
-        return _FakeHTTPResponse(_kimi_payload(_FULL_REPORT))
+        posted.append((url, kwargs["json"]["model"]))
+        return _FakeHTTPResponse(_chat_payload(_FULL_REPORT))
 
     monkeypatch.setattr(analyst.requests, "post", fake_post)
-    monkeypatch.setenv("KIMI_API_KEY", "sk-test")
+    for prov in analyst._OPENAI_PROVIDERS:
+        monkeypatch.setenv(prov["env"], "key-test")
     monkeypatch.setenv("GEMINI_API_KEY1", "gem-test")
 
     assert analyst.generate_report([], [], {}, "") == _FULL_REPORT
-    assert posted == ["kimi-k3"]   # first model answered; no needless fallback
+    # NVIDIA answered first; Moonshot was never contacted.
+    assert len(posted) == 1
+    assert "integrate.api.nvidia.com" in posted[0][0]
+    assert posted[0][1] == "moonshotai/kimi-k3"
+
+
+def test_provider_falls_through_to_the_next_provider(monkeypatch):
+    """A dead NVIDIA key must not cost the month's report."""
+    from src import analyst
+
+    posted = []
+
+    def fake_post(url, **kwargs):
+        posted.append(url)
+        if "nvidia" in url:
+            return _FakeHTTPResponse(
+                {"status": 404, "title": "Not Found",
+                 "detail": "Specified function in account is not found"}
+            )
+        return _FakeHTTPResponse(_chat_payload(_FULL_REPORT))
+
+    monkeypatch.setattr(analyst.requests, "post", fake_post)
+    for prov in analyst._OPENAI_PROVIDERS:
+        monkeypatch.setenv(prov["env"], "key-test")
+    monkeypatch.delenv("GEMINI_API_KEY1", raising=False)
+
+    assert analyst.generate_report([], [], {}, "") == _FULL_REPORT
+    assert any("nvidia" in u for u in posted)
+    assert any("moonshot" in u for u in posted)
+
+
+def test_nvidia_routing_failure_is_reported_not_swallowed(monkeypatch):
+    """NVIDIA reports routing errors as a bare detail object, not an OpenAI error."""
+    from src import analyst
+
+    analyst_mod = _only_provider(monkeypatch, "NVIDIA")
+    monkeypatch.setattr(
+        analyst_mod.requests, "post",
+        lambda url, **kw: _FakeHTTPResponse(
+            {"status": 404, "title": "Not Found", "detail": "function not found"}
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="All models"):
+        analyst_mod.generate_report([], [], {}, "")
 
 
 def test_kimi_falls_back_to_its_second_model(monkeypatch):
@@ -401,46 +461,50 @@ def test_kimi_falls_back_to_its_second_model(monkeypatch):
         model = kwargs["json"]["model"]
         posted.append(model)
         if model == "kimi-k3":
-            return _FakeHTTPResponse(
-                {"error": {"message": "insufficient balance"}}, status=200
-            )
-        return _FakeHTTPResponse(_kimi_payload(_FULL_REPORT))
+            return _FakeHTTPResponse({"error": {"message": "insufficient balance"}})
+        return _FakeHTTPResponse(_chat_payload(_FULL_REPORT))
 
-    monkeypatch.setattr(analyst.requests, "post", fake_post)
-    monkeypatch.setenv("KIMI_API_KEY", "sk-test")
-    monkeypatch.delenv("GEMINI_API_KEY1", raising=False)
+    analyst_mod = _only_provider(monkeypatch, "Kimi")
+    monkeypatch.setattr(analyst_mod.requests, "post", fake_post)
 
-    assert analyst.generate_report([], [], {}, "") == _FULL_REPORT
+    assert analyst_mod.generate_report([], [], {}, "") == _FULL_REPORT
     assert posted == ["kimi-k3", "kimi-k2.6"]
 
 
-def test_kimi_truncation_is_rejected_like_geminis(monkeypatch):
+def test_openai_truncation_is_rejected_like_geminis(monkeypatch):
     """OpenAI-style APIs report a cut-off with finish_reason 'length'."""
+    analyst_mod = _only_provider(monkeypatch, "NVIDIA")
+    monkeypatch.setattr(
+        analyst_mod.requests, "post",
+        lambda url, **kw: _FakeHTTPResponse(_chat_payload("# One\n\n| a |", "length")),
+    )
+
+    with pytest.raises(RuntimeError, match="All models"):
+        analyst_mod.generate_report([], [], {}, "")
+
+
+def test_reasoning_field_is_not_mistaken_for_the_report(monkeypatch):
+    """Reasoning models return the chain of thought separately; only content counts."""
+    analyst_mod = _only_provider(monkeypatch, "NVIDIA")
+    payload = _chat_payload(_FULL_REPORT)
+    payload["choices"][0]["message"]["reasoning_content"] = "thinking out loud" * 50
+
+    monkeypatch.setattr(
+        analyst_mod.requests, "post", lambda url, **kw: _FakeHTTPResponse(payload)
+    )
+    assert analyst_mod.generate_report([], [], {}, "") == _FULL_REPORT
+
+
+def test_dead_providers_fall_through_to_gemini(monkeypatch):
     from src import analyst
 
     monkeypatch.setattr(
         analyst.requests, "post",
-        lambda url, **kw: _FakeHTTPResponse(_kimi_payload("# One\n\n| a |", "length")),
+        lambda url, **kw: _FakeHTTPResponse({"error": {"message": "no balance"}}),
     )
-    monkeypatch.setenv("KIMI_API_KEY", "sk-test")
-    monkeypatch.delenv("GEMINI_API_KEY1", raising=False)
-
-    with pytest.raises(RuntimeError, match="All models"):
-        analyst.generate_report([], [], {}, "")
-
-
-def test_dead_kimi_key_falls_through_to_gemini(monkeypatch):
-    """A suspended Moonshot account must not cost you the month's report."""
-    from src import analyst
-
-    def dead_post(url, **kwargs):
-        return _FakeHTTPResponse(
-            {"error": {"message": "account suspended due to insufficient balance"}}
-        )
-
-    monkeypatch.setattr(analyst.requests, "post", dead_post)
     analyst_mod, calls = _run_generate(monkeypatch, _FakeResponse(_FULL_REPORT))
-    monkeypatch.setenv("KIMI_API_KEY", "sk-dead")
+    for prov in analyst_mod._OPENAI_PROVIDERS:
+        monkeypatch.setenv(prov["env"], "key-dead")
 
     assert analyst_mod.generate_report([], [], {}, "") == _FULL_REPORT
     assert calls == analyst_mod._GEMINI_MODELS[:1]
@@ -449,8 +513,10 @@ def test_dead_kimi_key_falls_through_to_gemini(monkeypatch):
 def test_no_keys_at_all_is_an_explicit_error(monkeypatch):
     from src import analyst
 
-    for var in ("KIMI_API_KEY", "GEMINI_API_KEY1", "GEMINI_API_KEY2", "GEMINI_API_KEY3"):
+    for prov in analyst._OPENAI_PROVIDERS:
+        monkeypatch.delenv(prov["env"], raising=False)
+    for var in ("GEMINI_API_KEY1", "GEMINI_API_KEY2", "GEMINI_API_KEY3"):
         monkeypatch.delenv(var, raising=False)
 
-    with pytest.raises(ValueError, match="No Gemini or Kimi API keys"):
+    with pytest.raises(ValueError, match="No API keys found"):
         analyst.generate_report([], [], {}, "")
